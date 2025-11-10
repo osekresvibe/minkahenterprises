@@ -126,18 +126,18 @@ export function registerRoutes(app: Express) {
           firstName: "Super",
           lastName: "Admin",
         });
-        
-        // Set role to super_admin
-        await storage.updateUserRole(adminId, "super_admin", null);
-        admin = await storage.getUser(adminId);
       }
       
-      // Set session manually
+      // Always ensure role is super_admin
+      await storage.updateUserRole(adminId, "super_admin", null);
+      
+      // Set session manually - use the exact same format as Replit Auth
       if (req.session) {
         req.session.user = {
           claims: {
             sub: adminId,
             email: adminEmail,
+            name: "Super Admin",
           },
         };
         
@@ -149,7 +149,9 @@ export function registerRoutes(app: Express) {
         });
       }
       
-      // Redirect to super admin dashboard
+      console.log("Admin backdoor login successful for:", adminId);
+      
+      // Redirect to root - App.tsx will route to super admin dashboard
       res.redirect("/");
     } catch (error) {
       console.error("Admin login error:", error);

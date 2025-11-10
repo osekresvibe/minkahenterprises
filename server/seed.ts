@@ -1,4 +1,3 @@
-
 import { storage } from "./storage";
 import crypto from "crypto";
 
@@ -189,7 +188,7 @@ async function seedDatabase() {
     if (channels.length > 0) {
       // Add messages to general channel
       const generalChannel = channels.find(c => c.name === "general") || channels[0];
-      
+
       const messages = [
         "Welcome everyone to our church chat!",
         "Looking forward to this Sunday's service!",
@@ -215,7 +214,7 @@ async function seedDatabase() {
     for (let c = 0; c < checkInCount; c++) {
       const checkInDate = new Date();
       checkInDate.setDate(checkInDate.getDate() - Math.floor(Math.random() * 7));
-      
+
       await storage.createCheckIn({
         churchId: church.id,
         userId: churchMembers[c % churchMembers.length].id,
@@ -238,7 +237,7 @@ async function seedDatabase() {
   console.log(`     • 3-5 posts`);
   console.log(`     • Messages in channels`);
   console.log(`     • Check-in records`);
-  
+
   console.log(`\n🔑 Test Login Credentials:`);
   for (let i = 0; i < churches.length; i++) {
     console.log(`   Church ${i + 1} Admin: admin${i + 1}@church${i + 1}.com`);
