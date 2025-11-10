@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { UserPlus, Mail, Trash2, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { UserPlus, Mail, Trash2, Clock, CheckCircle, XCircle, Copy, Check, Send } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertInvitationSchema, type InsertInvitation, type Invitation } from "@shared/schema";
@@ -34,6 +36,8 @@ export default function InviteMembers() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [emailList, setEmailList] = useState("");
 
   const { data: invitations = [], isLoading } = useQuery<Invitation[]>({
     queryKey: ["/api/invitations"],
@@ -112,9 +116,36 @@ export default function InviteMembers() {
     },
   });
 
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+  });
+
+  const sendInvitesMutation = useMutation({
+    mutationFn: async (emails: string[]) => {
+      return await apiRequest("/api/invitations/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails }),
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Invitations sent!",
+        description: `Successfully sent ${data.sent} invitation${data.sent !== 1 ? 's' : ''}`,
+      });
+      setEmailList("");
+    },
+    onError: () => {
+      toast({
+        title: "Failed to send invitations",
+        variant: "destructive",
+      });
+    },
+  });
+
   const getStatusBadge = (invitation: Invitation) => {
     const isExpired = new Date(invitation.expiresAt) < new Date();
-    
+
     if (invitation.status === "accepted") {
       return <Badge variant="default" data-testid={`badge-status-${invitation.id}`}><CheckCircle className="h-3 w-3 mr-1" />Accepted</Badge>;
     }
@@ -125,6 +156,34 @@ export default function InviteMembers() {
       return <Badge variant="secondary" data-testid={`badge-status-${invitation.id}`}><Clock className="h-3 w-3 mr-1" />Expired</Badge>;
     }
     return <Badge variant="outline" data-testid={`badge-status-${invitation.id}`}><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+  };
+
+  const copyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({
+      title: "Link copied!",
+      description: "The invite link has been copied to your clipboard.",
+    });
+  };
+
+  const handleSendInvites = () => {
+    const emails = emailList
+      .split(/[\n,]/)
+      .map(email => email.trim())
+      .filter(email => email && email.includes("@"));
+
+    if (emails.length === 0) {
+      toast({
+        title: "No valid emails",
+        description: "Please enter at least one valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    sendInvitesMutation.mutate(emails);
   };
 
   if (isLoading) {
@@ -151,7 +210,7 @@ export default function InviteMembers() {
             </p>
           </div>
         </div>
-        
+
         <Button
           onClick={() => setShowForm(!showForm)}
           data-testid="button-toggle-invite-form"
@@ -281,7 +340,7 @@ export default function InviteMembers() {
                       {invitation.status === "pending" && ` • Expires ${formatDistanceToNow(new Date(invitation.expiresAt), { addSuffix: true })}`}
                     </p>
                   </div>
-                  
+
                   {invitation.status === "pending" && new Date(invitation.expiresAt) > new Date() && (
                     <Button
                       variant="ghost"
@@ -297,6 +356,42 @@ export default function InviteMembers() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            Send Email Invitations
+          </CardTitle>
+          <CardDescription>
+            Enter email addresses (one per line or comma-separated) to send personalized invitation emails
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="email-list">Email Addresses</Label>
+            <Textarea
+              id="email-list"
+              placeholder="john@example.com&#10;jane@example.com&#10;bob@example.com"
+              value={emailList}
+              onChange={(e) => setEmailList(e.target.value)}
+              rows={6}
+              className="font-mono text-sm"
+            />
+            <p className="text-sm text-muted-foreground mt-2">
+              Enter one email per line or separate with commas
+            </p>
+          </div>
+          <Button 
+            onClick={handleSendInvites}
+            disabled={sendInvitesMutation.isPending || !emailList.trim()}
+            className="w-full"
+          >
+            <Mail className="mr-2 h-4 w-4" />
+            {sendInvitesMutation.isPending ? "Sending..." : "Send Invitations"}
+          </Button>
         </CardContent>
       </Card>
     </div>

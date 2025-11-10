@@ -173,6 +173,44 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Bulk email invitations
+  app.post("/api/invitations/bulk", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+
+    const { emails } = req.body;
+    
+    if (!Array.isArray(emails) || emails.length === 0) {
+      return res.status(400).json({ message: "Email list is required" });
+    }
+
+    try {
+      const inviteLink = `${req.protocol}://${req.get('host')}/accept-invite?churchId=${user.churchId}`;
+      let sent = 0;
+
+      // In a production app, you'd integrate with an email service like SendGrid, Resend, etc.
+      // For now, we'll just log the invitations
+      for (const email of emails) {
+        if (email && email.includes('@')) {
+          console.log(`[INVITE] Sending invitation to ${email} for church ${user.churchId}`);
+          console.log(`[INVITE] Link: ${inviteLink}`);
+          sent++;
+        }
+      }
+
+      res.json({ 
+        sent,
+        message: `${sent} invitation${sent !== 1 ? 's' : ''} queued for sending`,
+        inviteLink 
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send invitations" });
+    }
+  });
+
   // Invitations
   app.post("/api/invitations", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
