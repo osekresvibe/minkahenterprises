@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
 import type { User } from "@shared/schema";
-import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertInvitationSchema } from "@shared/schema";
+import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema } from "@shared/schema";
 import crypto from "crypto";
 
 // Rate limiting for invitations: 10 invites per hour per user
@@ -279,6 +279,198 @@ export function registerRoutes(app: Express) {
     await storage.updateInvitationStatus(token, "accepted");
     
     res.json({ message: "Invitation accepted successfully", churchId: invitation.churchId });
+  });
+
+  // Ministry Teams
+  app.get("/api/ministry-teams", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.json([]);
+    }
+    
+    const teams = await storage.getMinistryTeams(user.churchId);
+    res.json(teams);
+  });
+  
+  app.post("/api/ministry-teams", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+    
+    try {
+      const teamData = insertMinistryTeamSchema.parse(req.body);
+      const team = await storage.createMinistryTeam({
+        ...teamData,
+        churchId: user.churchId,
+      });
+      
+      res.status(201).json(team);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid team data" });
+    }
+  });
+  
+  app.get("/api/ministry-teams/:id", isAuthenticated, getCurrentUser, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    const team = await storage.getMinistryTeam(id);
+    
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    
+    // Verify team belongs to user's church
+    if (team.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    res.json(team);
+  });
+  
+  app.patch("/api/ministry-teams/:id", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    const team = await storage.getMinistryTeam(id);
+    
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    
+    // Verify team belongs to user's church
+    if (team.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    try {
+      const teamData = insertMinistryTeamSchema.partial().parse(req.body);
+      await storage.updateMinistryTeam(id, teamData);
+      
+      res.json({ message: "Team updated successfully" });
+    } catch (error) {
+      res.status(400).json({ message: "Invalid team data" });
+    }
+  });
+  
+  app.delete("/api/ministry-teams/:id", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    const team = await storage.getMinistryTeam(id);
+    
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    
+    // Verify team belongs to user's church
+    if (team.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    await storage.deleteMinistryTeam(id);
+    res.json({ message: "Team deleted successfully" });
+  });
+  
+  // Team Members
+  app.get("/api/ministry-teams/:id/members", isAuthenticated, getCurrentUser, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    const team = await storage.getMinistryTeam(id);
+    
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    
+    // Verify team belongs to user's church
+    if (team.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    const members = await storage.getTeamMembersWithUserInfo(id);
+    res.json(members);
+  });
+  
+  app.post("/api/ministry-teams/:id/members", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    const team = await storage.getMinistryTeam(id);
+    
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    
+    // Verify team belongs to user's church
+    if (team.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    try {
+      const memberData = insertTeamMemberSchema.parse(req.body);
+      
+      // Verify user being added belongs to the same church
+      const memberUser = await storage.getUser(memberData.userId);
+      if (!memberUser || memberUser.churchId !== user.churchId) {
+        return res.status(400).json({ message: "User must be a member of this church" });
+      }
+      
+      const member = await storage.addTeamMember({
+        ...memberData,
+        teamId: id,
+      });
+      
+      res.status(201).json(member);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid member data or user already on team" });
+    }
+  });
+  
+  app.delete("/api/ministry-teams/:teamId/members/:userId", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const { teamId, userId } = req.params;
+    const user = res.locals.user as User;
+    
+    const team = await storage.getMinistryTeam(teamId);
+    
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    
+    // Verify team belongs to user's church
+    if (team.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    await storage.removeTeamMember(teamId, userId);
+    res.json({ message: "Member removed from team" });
+  });
+  
+  app.patch("/api/ministry-teams/:teamId/members/:userId", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const { teamId, userId } = req.params;
+    const user = res.locals.user as User;
+    const { role } = req.body;
+    
+    if (!role) {
+      return res.status(400).json({ message: "Role is required" });
+    }
+    
+    const team = await storage.getMinistryTeam(teamId);
+    
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    
+    // Verify team belongs to user's church
+    if (team.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    await storage.updateTeamMemberRole(teamId, userId, role);
+    res.json({ message: "Member role updated successfully" });
   });
 
   // Members
