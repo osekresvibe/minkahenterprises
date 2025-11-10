@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
 import type { User } from "@shared/schema";
-import { insertChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema } from "@shared/schema";
+import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema } from "@shared/schema";
 
 // Middleware to get current user from session
 const getCurrentUser: RequestHandler = async (req, res, next) => {
@@ -84,6 +84,39 @@ export function registerRoutes(app: Express) {
       });
       
       res.status(201).json(church);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid church data" });
+    }
+  });
+
+  // Church Profile Management
+  app.get("/api/churches/my-church", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(404).json({ message: "No church assigned" });
+    }
+    
+    const church = await storage.getChurch(user.churchId);
+    if (!church) {
+      return res.status(404).json({ message: "Church not found" });
+    }
+    
+    res.json(church);
+  });
+
+  app.patch("/api/churches/my-church", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+    
+    try {
+      const churchData = updateChurchSchema.parse(req.body);
+      await storage.updateChurch(user.churchId, churchData);
+      const updatedChurch = await storage.getChurch(user.churchId);
+      res.json(updatedChurch);
     } catch (error) {
       res.status(400).json({ message: "Invalid church data" });
     }

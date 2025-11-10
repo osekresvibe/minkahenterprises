@@ -262,6 +262,10 @@ export const insertChurchSchema = createInsertSchema(churches).pick({
   bannerUrl: true,
 });
 
+export const updateChurchSchema = insertChurchSchema.partial().extend({
+  name: z.string().min(1, "Church name is required"),
+});
+
 export const insertPostSchema = createInsertSchema(posts).pick({
   title: true,
   content: true,
@@ -300,6 +304,7 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertChurch = z.infer<typeof insertChurchSchema>;
+export type UpdateChurch = z.infer<typeof updateChurchSchema>;
 export type Church = typeof churches.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type Post = typeof posts.$inferSelect;

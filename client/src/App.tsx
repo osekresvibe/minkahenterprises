@@ -20,6 +20,7 @@ import Messages from "@/pages/messages";
 import CheckInPage from "@/pages/check-in";
 import RegisterChurch from "@/pages/register-church";
 import Members from "@/pages/members";
+import ChurchSettings from "@/pages/church-settings";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -83,6 +84,7 @@ function AppContent() {
                 <Route path="/events" component={Events} />
                 <Route path="/messages" component={Messages} />
                 <Route path="/check-ins" component={CheckInPage} />
+                <Route path="/settings" component={ChurchSettings} />
                 <Route path="/register-church" component={RegisterChurch} />
                 <Route component={NotFound} />
               </Switch>

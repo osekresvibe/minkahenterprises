@@ -12,6 +12,7 @@ import {
   type User,
   type Church,
   type InsertChurch,
+  type UpdateChurch,
   type Post,
   type InsertPost,
   type Event,
@@ -37,6 +38,7 @@ export interface IStorage {
   createChurch(church: InsertChurch): Promise<Church>;
   getChurch(id: string): Promise<Church | undefined>;
   getAllChurches(): Promise<Church[]>;
+  updateChurch(id: string, data: UpdateChurch): Promise<void>;
   updateChurchStatus(id: string, status: string): Promise<void>;
   
   // Post operations
@@ -145,6 +147,13 @@ export class DatabaseStorage implements IStorage {
   async getAllChurches(): Promise<Church[]> {
     const rows = await db.select().from(churches).orderBy(desc(churches.createdAt));
     return rows;
+  }
+
+  async updateChurch(id: string, data: UpdateChurch): Promise<void> {
+    await db
+      .update(churches)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(churches.id, id));
   }
 
   async updateChurchStatus(id: string, status: string): Promise<void> {
