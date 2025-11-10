@@ -141,6 +141,29 @@ export function registerRoutes(app: Express) {
     res.json(churches);
   });
 
+  // Super Admin - Platform Analytics
+  app.get("/api/admin/analytics", isAuthenticated, getCurrentUser, requireSuperAdmin, async (req, res) => {
+    const stats = await storage.getPlatformStats();
+    res.json(stats);
+  });
+
+  // Super Admin - Church Activity Details
+  app.get("/api/admin/churches/:id/activity", isAuthenticated, getCurrentUser, requireSuperAdmin, async (req, res) => {
+    const { id } = req.params;
+    const stats = await storage.getChurchActivityStats(id);
+    res.json(stats);
+  });
+
+  // Super Admin - All Platform Activity
+  app.get("/api/admin/activity", isAuthenticated, getCurrentUser, requireSuperAdmin, async (req, res) => {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+    const churchId = req.query.churchId as string | undefined;
+    
+    const activities = await storage.getActivityLogs({ limit, offset, churchId });
+    res.json(activities);
+  });
+
   app.post("/api/admin/churches/:id/approve", isAuthenticated, getCurrentUser, requireSuperAdmin, async (req, res) => {
     const { id } = req.params;
     const church = await storage.getChurch(id);
@@ -304,6 +327,16 @@ export function registerRoutes(app: Express) {
       
       // Record successful invitation for rate limiting
       recordInviteSent(user.id);
+      
+      // Log activity
+      await storage.logActivity({
+        churchId: user.churchId,
+        userId: user.id,
+        action: 'member_invited',
+        entityType: 'invitation',
+        entityId: invitation.id,
+        metadata: { email: invitationData.email, role: invitationData.role },
+      });
       
       // TODO: Send email with invitation link (stubbed for now)
       console.log(`[MAILER STUB] Invitation email would be sent to: ${invitationData.email}`);
@@ -636,6 +669,16 @@ export function registerRoutes(app: Express) {
         authorId: user.id,
       });
       
+      // Log activity
+      await storage.logActivity({
+        churchId: user.churchId,
+        userId: user.id,
+        action: 'post_created',
+        entityType: 'post',
+        entityId: post.id,
+        metadata: { title: post.title },
+      });
+      
       res.status(201).json(post);
     } catch (error) {
       res.status(400).json({ message: "Invalid post data" });
@@ -679,6 +722,16 @@ export function registerRoutes(app: Express) {
         ...eventData,
         churchId: user.churchId,
         creatorId: user.id,
+      });
+      
+      // Log activity
+      await storage.logActivity({
+        churchId: user.churchId,
+        userId: user.id,
+        action: 'event_created',
+        entityType: 'event',
+        entityId: event.id,
+        metadata: { title: event.title, startTime: event.startTime },
       });
       
       res.status(201).json(event);

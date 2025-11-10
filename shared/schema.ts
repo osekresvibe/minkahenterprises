@@ -221,6 +221,46 @@ export const mediaFiles = pgTable("media_files", {
   index("media_files_church_idx").on(table.churchId),
   index("media_files_uploader_idx").on(table.uploadedBy),
   index("media_files_type_idx").on(table.mediaType),
+
+
+// Activity Logs table - for super admin monitoring
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  churchId: varchar("church_id").references(() => churches.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  action: varchar("action", { length: 100 }).notNull(), // 'post_created', 'event_created', 'member_invited', etc.
+  entityType: varchar("entity_type", { length: 50 }), // 'post', 'event', 'invitation', etc.
+  entityId: varchar("entity_id"),
+  metadata: jsonb("metadata"), // Additional context about the action
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("activity_logs_church_idx").on(table.churchId),
+  index("activity_logs_user_idx").on(table.userId),
+  index("activity_logs_action_idx").on(table.action),
+  index("activity_logs_created_idx").on(table.createdAt),
+]);
+
+export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+  church: one(churches, {
+    fields: [activityLogs.churchId],
+    references: [churches.id],
+  }),
+  user: one(users, {
+    fields: [activityLogs.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertActivityLogSchema = createInsertSchema(activityLogs).pick({
+  action: true,
+  entityType: true,
+  entityId: true,
+  metadata: true,
+});
+
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;
+
   index("media_files_category_idx").on(table.category),
   index("media_files_created_idx").on(table.createdAt),
 ]);

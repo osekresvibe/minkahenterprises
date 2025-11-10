@@ -13,6 +13,7 @@ import {
   ministryTeams,
   teamMembers,
   mediaFiles,
+  activityLogs,
   type User,
   type Church,
   type InsertChurch,
@@ -22,7 +23,6 @@ import {
   type Event,
   type InsertEvent,
   type EventRsvp,
-  type InsertEventRsvp,
   type CheckIn,
   type InsertCheckIn,
   type MessageChannel,
@@ -37,6 +37,7 @@ import {
   type InsertTeamMember,
   type MediaFile,
   type InsertMediaFile,
+  type ActivityLog,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -118,6 +119,39 @@ export interface IStorage {
   updateMediaFile(id: string, data: Partial<InsertMediaFile>): Promise<void>;
   deleteMediaFile(id: string): Promise<void>;
   getMediaFilesByEntity(entityType: string, entityId: string): Promise<MediaFile[]>;
+
+  // Activity Logs operations
+  logActivity(log: {
+    churchId?: string;
+    userId?: string;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    metadata?: any;
+  }): Promise<void>;
+  getActivityLogs(filters?: {
+    churchId?: string;
+    userId?: string;
+    action?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ActivityLog[]>;
+  getChurchActivityStats(churchId: string): Promise<{
+    totalPosts: number;
+    totalEvents: number;
+    totalMembers: number;
+    totalCheckIns: number;
+    totalInvitations: number;
+    recentActivity: ActivityLog[];
+  }>;
+  getPlatformStats(): Promise<{
+    totalChurches: number;
+    totalUsers: number;
+    totalPosts: number;
+    totalEvents: number;
+    totalCheckIns: number;
+    churchesByStatus: { status: string; count: number }[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -636,6 +670,140 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(mediaFiles.relatedEntityType, entityType), eq(mediaFiles.relatedEntityId, entityId)))
       .orderBy(desc(mediaFiles.createdAt));
     return rows;
+  }
+
+  // Activity Logs operations
+  async logActivity(log: {
+    churchId?: string;
+    userId?: string;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    metadata?: any;
+  }): Promise<void> {
+    try {
+      await db.insert(activityLogs).values({
+        churchId: log.churchId,
+        userId: log.userId,
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        metadata: log.metadata,
+      });
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+    }
+  }
+
+  async getActivityLogs(filters?: {
+    churchId?: string;
+    userId?: string;
+    action?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ActivityLog[]> {
+    let query = db.select().from(activityLogs).$dynamic();
+
+    if (filters?.churchId) {
+      query = query.where(eq(activityLogs.churchId, filters.churchId));
+    }
+    if (filters?.userId) {
+      query = query.where(eq(activityLogs.userId, filters.userId));
+    }
+    if (filters?.action) {
+      query = query.where(eq(activityLogs.action, filters.action));
+    }
+
+    query = query.orderBy(desc(activityLogs.createdAt));
+
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
+    if (filters?.offset) {
+      query = query.offset(filters.offset);
+    }
+
+    return await query;
+  }
+
+  async getChurchActivityStats(churchId: string): Promise<{
+    totalPosts: number;
+    totalEvents: number;
+    totalMembers: number;
+    totalCheckIns: number;
+    totalInvitations: number;
+    recentActivity: ActivityLog[];
+  }> {
+    const [postsCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(posts)
+      .where(eq(posts.churchId, churchId));
+
+    const [eventsCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(events)
+      .where(eq(events.churchId, churchId));
+
+    const [membersCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.churchId, churchId));
+
+    const [checkInsCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(checkIns)
+      .where(eq(checkIns.churchId, churchId));
+
+    const [invitationsCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(invitations)
+      .where(eq(invitations.churchId, churchId));
+
+    const recentActivity = await this.getActivityLogs({ churchId, limit: 10 });
+
+    return {
+      totalPosts: postsCount.count,
+      totalEvents: eventsCount.count,
+      totalMembers: membersCount.count,
+      totalCheckIns: checkInsCount.count,
+      totalInvitations: invitationsCount.count,
+      recentActivity,
+    };
+  }
+
+  async getPlatformStats(): Promise<{
+    totalChurches: number;
+    totalUsers: number;
+    totalPosts: number;
+    totalEvents: number;
+    totalCheckIns: number;
+    churchesByStatus: { status: string; count: number }[];
+  }> {
+    const [churchesCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(churches);
+
+    const [usersCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(users);
+
+    const [postsCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(posts);
+
+    const [eventsCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(events);
+
+    const [checkInsCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(checkIns);
+
+    const churchesByStatus = await db.select({
+      status: churches.status,
+      count: sql<number>`count(*)`,
+    })
+      .from(churches)
+      .groupBy(churches.status);
+
+    return {
+      totalChurches: churchesCount.count,
+      totalUsers: usersCount.count,
+      totalPosts: postsCount.count,
+      totalEvents: eventsCount.count,
+      totalCheckIns: checkInsCount.count,
+      churchesByStatus,
+    };
   }
 }
 
