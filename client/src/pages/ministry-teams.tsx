@@ -20,7 +20,7 @@ type TeamMemberWithUser = TeamMember & { user: User };
 
 export default function MinistryTeamsPage() {
   const { toast } = useToast();
-  
+
   // Separate state for each dialog to avoid coupling
   const [teamBeingEdited, setTeamBeingEdited] = useState<MinistryTeam | null>(null);
   const [teamMembersDialogId, setTeamMembersDialogId] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export default function MinistryTeamsPage() {
     mutationFn: async ({ id, data }: { id: string; data: Partial<z.infer<typeof insertMinistryTeamSchema>> }) => {
       return await apiRequest(`/api/ministry-teams/${id}`, {
         method: "PATCH",
-        body: JSON.stringify(data),
+        body: JSON.JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
       });
     },
