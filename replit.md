@@ -98,11 +98,16 @@ Preferred communication style: Simple, everyday language.
 - Messages stored in PostgreSQL with sender/channel/timestamp tracking
 - Polling fallback (3-second interval) for clients with WebSocket connection issues
 
-**Ministry Teams**
+**Ministry Teams System**
 - Hierarchical team structure with roles: leader, co_leader, member, volunteer
-- Teams belong to churches and can have multiple members with different roles
-- Public directory view for all authenticated users
-- Management interface restricted to Church Admins
+- Teams belong to churches with name, description, and member assignments
+- Single leader constraint enforced via partial unique index on (teamId, role) WHERE role = 'leader'
+- Church Admins can create/edit/delete teams and assign members with specific roles
+- Member directory at `/team-directory` shows all teams with nested member data (accessible to all authenticated church members)
+- Admin management interface at `/ministry-teams` for CRUD operations (restricted to Church Admins)
+- Efficient data fetching: `getMinistryTeamsWithMembers()` uses two queries with in-memory grouping
+- Null-safe rendering for users without complete profile data (fallback to email for display)
+- Separate API endpoints: `/api/ministry-teams` (admin-only) and `/api/team-directory` (all members)
 
 **Check-In System**
 - Digital attendance tracking with optional notes field
