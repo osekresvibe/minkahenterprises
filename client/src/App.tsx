@@ -64,6 +64,32 @@ function AppContent() {
     "--sidebar-width-icon": "3rem",
   } as React.CSSProperties;
 
+  // Redirect based on user role
+  if (isSuperAdmin) {
+    return (
+      <>
+        <div className="fixed top-4 right-4 z-50">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.href = "/api/logout"}
+            data-testid="button-logout"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
+        <Switch>
+          <Route path="/" component={SuperAdminDashboard} />
+          <Route path="/admin" component={SuperAdminDashboard} />
+          <Route path="/admin/churches" component={SuperAdminDashboard} />
+          <Route path="/admin/approvals" component={SuperAdminDashboard} />
+          <Route component={NotFound} />
+        </Switch>
+      </>
+    );
+  }
+
   // Church Admin Layout with Sidebar
   if (isChurchAdmin) {
     return (
@@ -103,32 +129,6 @@ function AppContent() {
           </div>
         </div>
       </SidebarProvider>
-    );
-  }
-
-  // Super Admin Layout (no sidebar)
-  if (isSuperAdmin) {
-    return (
-      <>
-        <div className="fixed top-4 right-4 z-50">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.location.href = "/api/logout"}
-            data-testid="button-logout"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
-        </div>
-        <Switch>
-          <Route path="/" component={SuperAdminDashboard} />
-          <Route path="/admin" component={SuperAdminDashboard} />
-          <Route path="/admin/churches" component={SuperAdminDashboard} />
-          <Route path="/admin/approvals" component={SuperAdminDashboard} />
-          <Route component={NotFound} />
-        </Switch>
-      </>
     );
   }
 
