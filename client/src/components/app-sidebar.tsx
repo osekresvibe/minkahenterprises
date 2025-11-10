@@ -8,6 +8,7 @@ import {
   Settings,
   CheckCircle,
   ChevronRight,
+  UsersRound,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -44,6 +45,7 @@ export function AppSidebar() {
     { title: "Dashboard", url: "/dashboard", icon: Home },
     { title: "Members", url: "/members", icon: Users },
     { title: "Invite Members", url: "/invite-members", icon: UserCheck },
+    { title: "Ministry Teams", url: "/ministry-teams", icon: UsersRound },
     { title: "Events", url: "/events", icon: Calendar },
     { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Check-ins", url: "/check-ins", icon: UserCheck },

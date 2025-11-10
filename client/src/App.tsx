@@ -23,6 +23,7 @@ import Members from "@/pages/members";
 import ChurchSettings from "@/pages/church-settings";
 import InviteMembers from "@/pages/invite-members";
 import AcceptInvite from "@/pages/accept-invite";
+import MinistryTeams from "@/pages/ministry-teams";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -85,6 +86,7 @@ function AppContent() {
                 <Route path="/dashboard" component={ChurchAdminDashboard} />
                 <Route path="/members" component={Members} />
                 <Route path="/invite-members" component={InviteMembers} />
+                <Route path="/ministry-teams" component={MinistryTeams} />
                 <Route path="/events" component={Events} />
                 <Route path="/messages" component={Messages} />
                 <Route path="/check-ins" component={CheckInPage} />
