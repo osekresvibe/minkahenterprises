@@ -43,6 +43,9 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  phone: varchar("phone", { length: 50 }),
+  address: text("address"),
+  bio: text("bio"),
   role: userRoleEnum("role").notNull().default("member"),
   churchId: varchar("church_id").references(() => churches.id, { onDelete: "cascade" }), // null for super_admin
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -146,6 +149,7 @@ export const checkIns = pgTable("check_ins", {
   churchId: varchar("church_id").notNull(),
   userId: varchar("user_id").notNull(),
   checkInTime: timestamp("check_in_time").defaultNow().notNull(),
+  location: varchar("location", { length: 255 }),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
