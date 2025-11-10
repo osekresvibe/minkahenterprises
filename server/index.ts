@@ -1,6 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import path from "path";
+import { setupAuth } from "./replitAuth";
+import fs from "fs";
 
 const app = express();
 
@@ -15,6 +18,15 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false }));
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Serve uploaded files
+app.use('/uploads', express.static(uploadsDir));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -48,7 +60,6 @@ app.use((req, res, next) => {
 
 (async () => {
   // Setup authentication
-  const { setupAuth } = await import("./replitAuth");
   await setupAuth(app);
 
   // Register API routes
@@ -67,7 +78,7 @@ app.use((req, res, next) => {
   // doesn't interfere with the other routes
   const { createServer } = await import("http");
   const server = createServer(app);
-  
+
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {

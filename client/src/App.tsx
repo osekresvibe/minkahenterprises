@@ -26,6 +26,7 @@ import AcceptInvite from "@/pages/accept-invite";
 import MinistryTeams from "@/pages/ministry-teams";
 import TeamDirectory from "@/pages/team-directory";
 import Profile from "@/pages/profile";
+import MediaLibrary from "@/pages/media-library";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -91,6 +92,7 @@ function AppContent() {
                 <Route path="/ministry-teams" component={MinistryTeams} />
                 <Route path="/events" component={Events} />
                 <Route path="/messages" component={Messages} />
+                <Route path="/media" component={MediaLibrary} />
                 <Route path="/check-ins" component={CheckInPage} />
                 <Route path="/settings" component={ChurchSettings} />
                 <Route path="/accept-invite/:token" component={AcceptInvite} />
@@ -136,6 +138,7 @@ function AppContent() {
       <Route path="/" component={MemberHome} />
       <Route path="/events" component={Events} />
       <Route path="/messages" component={Messages} />
+      <Route path="/media" component={MediaLibrary} />
       <Route path="/check-in" component={CheckInPage} />
       <Route path="/team-directory" component={TeamDirectory} />
       <Route path="/profile" component={Profile} />

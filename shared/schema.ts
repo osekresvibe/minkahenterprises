@@ -22,6 +22,8 @@ export const churchStatusEnum = pgEnum("church_status", ["pending", "approved", 
 export const eventRsvpStatusEnum = pgEnum("event_rsvp_status", ["going", "maybe", "not_going"]);
 export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "accepted", "declined", "expired"]);
 export const ministryTeamRoleEnum = pgEnum("ministry_team_role", ["leader", "co_leader", "member", "volunteer"]);
+export const mediaTypeEnum = pgEnum("media_type", ["image", "video"]);
+export const mediaCategoryEnum = pgEnum("media_category", ["event", "post", "profile", "general", "ministry"]);
 
 // Session storage table - required for Replit Auth
 export const sessions = pgTable(
@@ -190,6 +192,35 @@ export const ministryTeams = pgTable("ministry_teams", {
   index("ministry_teams_church_idx").on(table.churchId),
 ]);
 
+// Media Files table - for photo and video uploads
+export const mediaFiles = pgTable("media_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  churchId: varchar("church_id").notNull().references(() => churches.id, { onDelete: "cascade" }),
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileUrl: varchar("file_url").notNull(),
+  thumbnailUrl: varchar("thumbnail_url"),
+  fileSize: integer("file_size").notNull(), // in bytes
+  mimeType: varchar("mime_type", { length: 100 }).notNull(),
+  mediaType: mediaTypeEnum("media_type").notNull(),
+  category: mediaCategoryEnum("category").notNull().default("general"),
+  width: integer("width"),
+  height: integer("height"),
+  duration: integer("duration"), // for videos, in seconds
+  description: text("description"),
+  tags: text("tags"), // comma-separated
+  relatedEntityId: varchar("related_entity_id"), // ID of related event, post, etc.
+  relatedEntityType: varchar("related_entity_type", { length: 50 }), // 'event', 'post', 'ministry_team', etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("media_files_church_idx").on(table.churchId),
+  index("media_files_uploader_idx").on(table.uploadedBy),
+  index("media_files_type_idx").on(table.mediaType),
+  index("media_files_category_idx").on(table.category),
+  index("media_files_created_idx").on(table.createdAt),
+]);
+
 // Team Members table - junction table for ministry team assignments
 export const teamMembers = pgTable("team_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -310,6 +341,17 @@ export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
   }),
 }));
 
+export const mediaFilesRelations = relations(mediaFiles, ({ one }) => ({
+  church: one(churches, {
+    fields: [mediaFiles.churchId],
+    references: [churches.id],
+  }),
+  uploader: one(users, {
+    fields: [mediaFiles.uploadedBy],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas for validation
 export const upsertUserSchema = createInsertSchema(users).extend({
   email: z.string().email().nullable().optional(),
@@ -383,6 +425,28 @@ export const insertTeamMemberSchema = createInsertSchema(teamMembers).pick({
   role: true,
 });
 
+export const insertMediaFileSchema = createInsertSchema(mediaFiles).pick({
+  fileName: true,
+  fileUrl: true,
+  thumbnailUrl: true,
+  fileSize: true,
+  mimeType: true,
+  mediaType: true,
+  category: true,
+  width: true,
+  height: true,
+  duration: true,
+  description: true,
+  tags: true,
+  relatedEntityId: true,
+  relatedEntityType: true,
+}).extend({
+  fileName: z.string().min(1, "File name is required"),
+  fileUrl: z.string().url("Invalid file URL"),
+  fileSize: z.number().positive("File size must be positive"),
+  mimeType: z.string().min(1, "MIME type is required"),
+});
+
 // TypeScript types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -407,3 +471,5 @@ export type InsertMinistryTeam = z.infer<typeof insertMinistryTeamSchema>;
 export type MinistryTeam = typeof ministryTeams.$inferSelect;
 export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertMediaFile = z.infer<typeof insertMediaFileSchema>;
+export type MediaFile = typeof mediaFiles.$inferSelect;

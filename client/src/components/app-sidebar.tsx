@@ -9,6 +9,7 @@ import {
   CheckCircle,
   ChevronRight,
   UsersRound,
+  Image,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {

@@ -2,8 +2,48 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
 import type { User } from "@shared/schema";
-import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema } from "@shared/schema";
+import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema } from "@shared/schema";
 import crypto from "crypto";
+import multer from "multer";
+import path from "path";
+import fs from "fs/promises";
+
+// Configure multer for file uploads
+const uploadDir = path.join(process.cwd(), "uploads");
+const storage_multer = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (error) {
+      cb(error as Error, uploadDir);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+    const ext = path.extname(file.originalname);
+    const name = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '_');
+    cb(null, `${name}-${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: storage_multer,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB max file size
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images and videos are allowed.'));
+    }
+  },
+});
 
 // Rate limiting for invitations: 10 invites per hour per user
 const inviteRateLimits = new Map<string, number[]>();
@@ -762,5 +802,142 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       res.status(400).json({ message: "Invalid message data" });
     }
+  });
+
+  // Media Library - File Upload
+  app.post("/api/media/upload", isAuthenticated, getCurrentUser, upload.single('file'), async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    try {
+      const fileUrl = `/uploads/${req.file.filename}`;
+      const isVideo = req.file.mimetype.startsWith('video/');
+      
+      const mediaData = {
+        fileName: req.file.originalname,
+        fileUrl,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        mediaType: isVideo ? 'video' : 'image',
+        category: req.body.category || 'general',
+        description: req.body.description,
+        tags: req.body.tags,
+        relatedEntityId: req.body.relatedEntityId,
+        relatedEntityType: req.body.relatedEntityType,
+        churchId: user.churchId,
+        uploadedBy: user.id,
+      };
+
+      const mediaFile = await storage.createMediaFile(mediaData);
+      res.status(201).json(mediaFile);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to save media file" });
+    }
+  });
+
+  // Get media files for church
+  app.get("/api/media", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.json([]);
+    }
+
+    const filters = {
+      mediaType: req.query.mediaType as string,
+      category: req.query.category as string,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+    };
+
+    const mediaFiles = await storage.getMediaFiles(user.churchId, filters);
+    res.json(mediaFiles);
+  });
+
+  // Get single media file
+  app.get("/api/media/:id", isAuthenticated, getCurrentUser, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    const mediaFile = await storage.getMediaFile(id);
+    
+    if (!mediaFile) {
+      return res.status(404).json({ message: "Media file not found" });
+    }
+    
+    if (mediaFile.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    res.json(mediaFile);
+  });
+
+  // Update media file metadata
+  app.patch("/api/media/:id", isAuthenticated, getCurrentUser, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    const mediaFile = await storage.getMediaFile(id);
+    
+    if (!mediaFile) {
+      return res.status(404).json({ message: "Media file not found" });
+    }
+    
+    if (mediaFile.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    try {
+      const updates = {
+        description: req.body.description,
+        tags: req.body.tags,
+        category: req.body.category,
+      };
+      
+      await storage.updateMediaFile(id, updates);
+      res.json({ message: "Media file updated successfully" });
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update media file" });
+    }
+  });
+
+  // Delete media file
+  app.delete("/api/media/:id", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    const mediaFile = await storage.getMediaFile(id);
+    
+    if (!mediaFile) {
+      return res.status(404).json({ message: "Media file not found" });
+    }
+    
+    if (mediaFile.churchId !== user.churchId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    try {
+      // Delete physical file
+      const filePath = path.join(process.cwd(), mediaFile.fileUrl);
+      await fs.unlink(filePath).catch(() => {});
+      
+      // Delete database record
+      await storage.deleteMediaFile(id);
+      
+      res.json({ message: "Media file deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete media file" });
+    }
+  });
+
+  // Serve uploaded files
+  app.use('/uploads', isAuthenticated, (req, res, next) => {
+    next();
   });
 }

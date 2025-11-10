@@ -12,6 +12,7 @@ import {
   invitations,
   ministryTeams,
   teamMembers,
+  mediaFiles,
   type User,
   type Church,
   type InsertChurch,
@@ -34,6 +35,8 @@ import {
   type InsertMinistryTeam,
   type TeamMember,
   type InsertTeamMember,
+  type MediaFile,
+  type InsertMediaFile,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -107,6 +110,14 @@ export interface IStorage {
   addTeamMember(member: InsertTeamMember & { teamId: string }): Promise<TeamMember>;
   removeTeamMember(teamId: string, userId: string): Promise<void>;
   updateTeamMemberRole(teamId: string, userId: string, role: string): Promise<void>;
+
+  // Media File operations
+  getMediaFiles(churchId: string, filters?: { mediaType?: string; category?: string; limit?: number }): Promise<MediaFile[]>;
+  getMediaFile(id: string): Promise<MediaFile | undefined>;
+  createMediaFile(file: InsertMediaFile & { churchId: string; uploadedBy: string }): Promise<MediaFile>;
+  updateMediaFile(id: string, data: Partial<InsertMediaFile>): Promise<void>;
+  deleteMediaFile(id: string): Promise<void>;
+  getMediaFilesByEntity(entityType: string, entityId: string): Promise<MediaFile[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -554,6 +565,77 @@ export class DatabaseStorage implements IStorage {
       .update(teamMembers)
       .set({ role })
       .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+  }
+
+  // Media File operations
+  async getMediaFiles(churchId: string, filters?: { mediaType?: string; category?: string; limit?: number }): Promise<MediaFile[]> {
+    let query = db
+      .select()
+      .from(mediaFiles)
+      .where(eq(mediaFiles.churchId, churchId))
+      .orderBy(desc(mediaFiles.createdAt));
+
+    if (filters?.mediaType) {
+      query = query.where(and(eq(mediaFiles.churchId, churchId), eq(mediaFiles.mediaType, filters.mediaType)));
+    }
+
+    if (filters?.category) {
+      query = query.where(and(eq(mediaFiles.churchId, churchId), eq(mediaFiles.category, filters.category)));
+    }
+
+    if (filters?.limit) {
+      return await query.limit(filters.limit);
+    }
+
+    return await query;
+  }
+
+  async getMediaFile(id: string): Promise<MediaFile | undefined> {
+    const [file] = await db.select().from(mediaFiles).where(eq(mediaFiles.id, id));
+    return file;
+  }
+
+  async createMediaFile(file: InsertMediaFile & { churchId: string; uploadedBy: string }): Promise<MediaFile> {
+    const record: typeof mediaFiles.$inferInsert = {
+      churchId: file.churchId,
+      uploadedBy: file.uploadedBy,
+      fileName: file.fileName,
+      fileUrl: file.fileUrl,
+      thumbnailUrl: file.thumbnailUrl,
+      fileSize: file.fileSize,
+      mimeType: file.mimeType,
+      mediaType: file.mediaType,
+      category: file.category,
+      width: file.width,
+      height: file.height,
+      duration: file.duration,
+      description: file.description,
+      tags: file.tags,
+      relatedEntityId: file.relatedEntityId,
+      relatedEntityType: file.relatedEntityType,
+    };
+    const [newFile] = await db.insert(mediaFiles).values(record).returning();
+    return newFile;
+  }
+
+  async updateMediaFile(id: string, data: Partial<InsertMediaFile>): Promise<void> {
+    await db
+      .update(mediaFiles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(mediaFiles.id, id));
+  }
+
+  async deleteMediaFile(id: string): Promise<void> {
+    await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
+  }
+
+  async getMediaFilesByEntity(entityType: string, entityId: string): Promise<MediaFile[]> {
+    const rows = await db
+      .select()
+      .from(mediaFiles)
+      .where(and(eq(mediaFiles.relatedEntityType, entityType), eq(mediaFiles.relatedEntityId, entityId)))
+      .orderBy(desc(mediaFiles.createdAt));
+    return rows;
   }
 }
 
