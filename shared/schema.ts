@@ -221,7 +221,8 @@ export const mediaFiles = pgTable("media_files", {
   index("media_files_church_idx").on(table.churchId),
   index("media_files_uploader_idx").on(table.uploadedBy),
   index("media_files_type_idx").on(table.mediaType),
-
+  index("media_files_category_idx").on(table.category),
+]);
 
 // Activity Logs table - for super admin monitoring
 export const activityLogs = pgTable("activity_logs", {
@@ -260,10 +261,6 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs).pick({
 
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
-
-  index("media_files_category_idx").on(table.category),
-  index("media_files_created_idx").on(table.createdAt),
-]);
 
 // Team Members table - junction table for ministry team assignments
 export const teamMembers = pgTable("team_members", {
