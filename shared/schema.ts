@@ -20,6 +20,7 @@ import { z } from "zod";
 export const userRoleEnum = pgEnum("user_role", ["super_admin", "church_admin", "member"]);
 export const churchStatusEnum = pgEnum("church_status", ["pending", "approved", "rejected"]);
 export const eventRsvpStatusEnum = pgEnum("event_rsvp_status", ["going", "maybe", "not_going"]);
+export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "accepted", "declined", "expired"]);
 
 // Session storage table - required for Replit Auth
 export const sessions = pgTable(
@@ -66,6 +67,25 @@ export const churches = pgTable("churches", {
 }, (table) => [
   index("churches_status_idx").on(table.status),
   index("churches_admin_idx").on(table.adminUserId),
+]);
+
+// Invitations table - for inviting new members to churches
+export const invitations = pgTable("invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  churchId: varchar("church_id").notNull().references(() => churches.id, { onDelete: "cascade" }),
+  invitedBy: varchar("invited_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 255 }).notNull(),
+  role: userRoleEnum("role").notNull().default("member"),
+  status: invitationStatusEnum("status").notNull().default("pending"),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("invitations_church_idx").on(table.churchId),
+  index("invitations_email_idx").on(table.email),
+  index("invitations_status_idx").on(table.status),
+  index("invitations_token_idx").on(table.token),
 ]);
 
 // Posts/Announcements table
@@ -300,6 +320,13 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   content: true,
 });
 
+export const insertInvitationSchema = createInsertSchema(invitations).pick({
+  email: true,
+  role: true,
+}).extend({
+  email: z.string().email("Invalid email address"),
+});
+
 // TypeScript types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -318,3 +345,5 @@ export type InsertMessageChannel = z.infer<typeof insertMessageChannelSchema>;
 export type MessageChannel = typeof messageChannels.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
+export type Invitation = typeof invitations.$inferSelect;

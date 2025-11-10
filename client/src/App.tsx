@@ -21,6 +21,8 @@ import CheckInPage from "@/pages/check-in";
 import RegisterChurch from "@/pages/register-church";
 import Members from "@/pages/members";
 import ChurchSettings from "@/pages/church-settings";
+import InviteMembers from "@/pages/invite-members";
+import AcceptInvite from "@/pages/accept-invite";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -41,6 +43,7 @@ function AppContent() {
       <Switch>
         <Route path="/" component={Landing} />
         <Route path="/register-church" component={RegisterChurch} />
+        <Route path="/accept-invite/:token" component={AcceptInvite} />
         <Route component={NotFound} />
       </Switch>
     );
@@ -81,10 +84,12 @@ function AppContent() {
                 <Route path="/" component={ChurchAdminDashboard} />
                 <Route path="/dashboard" component={ChurchAdminDashboard} />
                 <Route path="/members" component={Members} />
+                <Route path="/invite-members" component={InviteMembers} />
                 <Route path="/events" component={Events} />
                 <Route path="/messages" component={Messages} />
                 <Route path="/check-ins" component={CheckInPage} />
                 <Route path="/settings" component={ChurchSettings} />
+                <Route path="/accept-invite/:token" component={AcceptInvite} />
                 <Route path="/register-church" component={RegisterChurch} />
                 <Route component={NotFound} />
               </Switch>

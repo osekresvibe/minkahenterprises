@@ -43,6 +43,7 @@ export function AppSidebar() {
   const churchAdminItems = [
     { title: "Dashboard", url: "/dashboard", icon: Home },
     { title: "Members", url: "/members", icon: Users },
+    { title: "Invite Members", url: "/invite-members", icon: UserCheck },
     { title: "Events", url: "/events", icon: Calendar },
     { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Check-ins", url: "/check-ins", icon: UserCheck },

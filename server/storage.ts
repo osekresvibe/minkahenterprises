@@ -9,6 +9,7 @@ import {
   checkIns,
   messageChannels,
   messages,
+  invitations,
   type User,
   type Church,
   type InsertChurch,
@@ -25,6 +26,8 @@ import {
   type InsertMessageChannel,
   type Message,
   type InsertMessage,
+  type Invitation,
+  type InsertInvitation,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -67,6 +70,13 @@ export interface IStorage {
   // Message operations
   getMessages(channelId: string): Promise<Message[]>;
   createMessage(message: InsertMessage & { channelId: string; userId: string }): Promise<Message>;
+  
+  // Invitation operations
+  createInvitation(invitation: InsertInvitation & { churchId: string; invitedBy: string; token: string; expiresAt: Date }): Promise<Invitation>;
+  getInvitationsByChurch(churchId: string): Promise<Invitation[]>;
+  getInvitationByToken(token: string): Promise<Invitation | undefined>;
+  updateInvitationStatus(token: string, status: string): Promise<void>;
+  deleteInvitation(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -315,6 +325,50 @@ export class DatabaseStorage implements IStorage {
     };
     const [newMessage] = await db.insert(messages).values(record).returning();
     return newMessage;
+  }
+
+  // Invitation operations
+  async createInvitation(invitation: InsertInvitation & { churchId: string; invitedBy: string; token: string; expiresAt: Date }): Promise<Invitation> {
+    const record: typeof invitations.$inferInsert = {
+      email: invitation.email,
+      role: invitation.role,
+      churchId: invitation.churchId,
+      invitedBy: invitation.invitedBy,
+      token: invitation.token,
+      expiresAt: invitation.expiresAt,
+      status: "pending",
+    };
+    const [newInvitation] = await db.insert(invitations).values(record).returning();
+    return newInvitation;
+  }
+
+  async getInvitationsByChurch(churchId: string): Promise<Invitation[]> {
+    const rows = await db
+      .select()
+      .from(invitations)
+      .where(eq(invitations.churchId, churchId))
+      .orderBy(desc(invitations.createdAt));
+    return rows;
+  }
+
+  async getInvitationByToken(token: string): Promise<Invitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(invitations)
+      .where(eq(invitations.token, token))
+      .limit(1);
+    return invitation;
+  }
+
+  async updateInvitationStatus(token: string, status: string): Promise<void> {
+    await db
+      .update(invitations)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(invitations.token, token));
+  }
+
+  async deleteInvitation(id: string): Promise<void> {
+    await db.delete(invitations).where(eq(invitations.id, id));
   }
 }
 

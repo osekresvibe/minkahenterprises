@@ -2,7 +2,36 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
 import type { User } from "@shared/schema";
-import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema } from "@shared/schema";
+import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertInvitationSchema } from "@shared/schema";
+import crypto from "crypto";
+
+// Rate limiting for invitations: 10 invites per hour per user
+const inviteRateLimits = new Map<string, number[]>();
+const INVITE_RATE_LIMIT = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+function canSendInvite(userId: string): boolean {
+  const now = Date.now();
+  const userInvites = inviteRateLimits.get(userId) || [];
+  
+  // Remove timestamps older than 1 hour
+  const recentInvites = userInvites.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW_MS);
+  
+  // Check if user has exceeded rate limit
+  return recentInvites.length < INVITE_RATE_LIMIT;
+}
+
+function recordInviteSent(userId: string): void {
+  const now = Date.now();
+  const userInvites = inviteRateLimits.get(userId) || [];
+  
+  // Remove timestamps older than 1 hour
+  const recentInvites = userInvites.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW_MS);
+  
+  // Add current timestamp
+  recentInvites.push(now);
+  inviteRateLimits.set(userId, recentInvites);
+}
 
 // Middleware to get current user from session
 const getCurrentUser: RequestHandler = async (req, res, next) => {
@@ -120,6 +149,136 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       res.status(400).json({ message: "Invalid church data" });
     }
+  });
+
+  // Invitations
+  app.post("/api/invitations", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+    
+    // Check rate limit BEFORE processing
+    if (!canSendInvite(user.id)) {
+      return res.status(429).json({ 
+        message: `Rate limit exceeded. You can send up to ${INVITE_RATE_LIMIT} invitations per hour.`
+      });
+    }
+    
+    try {
+      const invitationData = insertInvitationSchema.parse(req.body);
+      
+      // Check if email is already a member of this church
+      const existingMembers = await storage.getUsersByChurch(user.churchId);
+      const isAlreadyMember = existingMembers.some(m => m.email === invitationData.email);
+      
+      if (isAlreadyMember) {
+        return res.status(400).json({ message: "User is already a member of this church" });
+      }
+      
+      // Check for existing pending invitation
+      const existingInvitations = await storage.getInvitationsByChurch(user.churchId);
+      const hasPendingInvite = existingInvitations.some(
+        inv => inv.email === invitationData.email && 
+        inv.status === "pending" && 
+        new Date(inv.expiresAt) > new Date()
+      );
+      
+      if (hasPendingInvite) {
+        return res.status(400).json({ message: "An invitation has already been sent to this email" });
+      }
+      
+      // Generate secure token and expiration
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+      
+      const invitation = await storage.createInvitation({
+        ...invitationData,
+        churchId: user.churchId,
+        invitedBy: user.id,
+        token,
+        expiresAt,
+      });
+      
+      // Record successful invitation for rate limiting
+      recordInviteSent(user.id);
+      
+      // TODO: Send email with invitation link (stubbed for now)
+      console.log(`[MAILER STUB] Invitation email would be sent to: ${invitationData.email}`);
+      console.log(`[MAILER STUB] Invitation link: ${process.env.REPLIT_DOMAINS?.split(',')[0]}/accept-invite/${token}`);
+      
+      res.json(invitation);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid invitation data" });
+    }
+  });
+
+  app.get("/api/invitations", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+    
+    const invitations = await storage.getInvitationsByChurch(user.churchId);
+    res.json(invitations);
+  });
+
+  app.delete("/api/invitations/:id", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+    
+    // Verify invitation belongs to this church
+    const invitations = await storage.getInvitationsByChurch(user.churchId);
+    const invitation = invitations.find(inv => inv.id === id);
+    
+    if (!invitation) {
+      return res.status(404).json({ message: "Invitation not found" });
+    }
+    
+    await storage.deleteInvitation(id);
+    res.json({ message: "Invitation cancelled" });
+  });
+
+  app.post("/api/invitations/accept/:token", isAuthenticated, getCurrentUser, async (req, res) => {
+    const { token } = req.params;
+    const user = res.locals.user as User;
+    
+    // Get invitation by token
+    const invitation = await storage.getInvitationByToken(token);
+    
+    if (!invitation) {
+      return res.status(404).json({ message: "Invalid invitation" });
+    }
+    
+    // Validate invitation status and expiration
+    if (invitation.status !== "pending") {
+      return res.status(400).json({ message: "This invitation has already been used" });
+    }
+    
+    if (new Date(invitation.expiresAt) < new Date()) {
+      await storage.updateInvitationStatus(token, "expired");
+      return res.status(400).json({ message: "This invitation has expired" });
+    }
+    
+    // Check if user's email matches the invitation
+    if (user.email !== invitation.email) {
+      return res.status(403).json({ message: "This invitation was sent to a different email address" });
+    }
+    
+    // Update user's church and role
+    await storage.updateUserRole(user.id, invitation.role, invitation.churchId);
+    
+    // Mark invitation as accepted
+    await storage.updateInvitationStatus(token, "accepted");
+    
+    res.json({ message: "Invitation accepted successfully", churchId: invitation.churchId });
   });
 
   // Members
