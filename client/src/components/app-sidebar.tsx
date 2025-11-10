@@ -57,6 +57,7 @@ export function AppSidebar() {
     { title: "Events", url: "/events", icon: Calendar },
     { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Check In", url: "/check-in", icon: UserCheck },
+    { title: "Ministry Teams", url: "/team-directory", icon: UsersRound },
   ];
 
   const menuItems = isSuperAdmin

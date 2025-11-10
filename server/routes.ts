@@ -472,6 +472,18 @@ export function registerRoutes(app: Express) {
     await storage.updateTeamMemberRole(teamId, userId, role);
     res.json({ message: "Member role updated successfully" });
   });
+  
+  // Team Directory (accessible to all church members)
+  app.get("/api/team-directory", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.json([]);
+    }
+    
+    const teamsWithMembers = await storage.getMinistryTeamsWithMembers(user.churchId);
+    res.json(teamsWithMembers);
+  });
 
   // Members
   app.get("/api/members", isAuthenticated, getCurrentUser, async (req, res) => {

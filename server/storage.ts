@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import {
   users,
   churches,
@@ -86,6 +86,7 @@ export interface IStorage {
   
   // Ministry Team operations
   getMinistryTeams(churchId: string): Promise<MinistryTeam[]>;
+  getMinistryTeamsWithMembers(churchId: string): Promise<(MinistryTeam & { members: (TeamMember & { user: User })[] })[]>;
   getMinistryTeam(id: string): Promise<MinistryTeam | undefined>;
   createMinistryTeam(team: InsertMinistryTeam & { churchId: string }): Promise<MinistryTeam>;
   updateMinistryTeam(id: string, data: Partial<InsertMinistryTeam>): Promise<void>;
@@ -400,6 +401,46 @@ export class DatabaseStorage implements IStorage {
       .where(eq(ministryTeams.churchId, churchId))
       .orderBy(ministryTeams.name);
     return rows;
+  }
+  
+  async getMinistryTeamsWithMembers(churchId: string): Promise<(MinistryTeam & { members: (TeamMember & { user: User })[] })[]> {
+    // Fetch all teams for the church
+    const teams = await this.getMinistryTeams(churchId);
+    
+    if (teams.length === 0) {
+      return [];
+    }
+    
+    const teamIds = teams.map(t => t.id);
+    
+    // Fetch all team members with user info for these teams
+    const allMembers = await db
+      .select({
+        id: teamMembers.id,
+        teamId: teamMembers.teamId,
+        userId: teamMembers.userId,
+        role: teamMembers.role,
+        joinedAt: teamMembers.joinedAt,
+        user: users,
+      })
+      .from(teamMembers)
+      .innerJoin(users, eq(teamMembers.userId, users.id))
+      .where(inArray(teamMembers.teamId, teamIds))
+      .orderBy(teamMembers.role, teamMembers.joinedAt);
+    
+    // Group members by team
+    const membersByTeam = new Map<string, (TeamMember & { user: User })[]>();
+    for (const member of allMembers) {
+      const existing = membersByTeam.get(member.teamId) || [];
+      existing.push(member);
+      membersByTeam.set(member.teamId, existing);
+    }
+    
+    // Combine teams with their members
+    return teams.map(team => ({
+      ...team,
+      members: membersByTeam.get(team.id) || [],
+    }));
   }
   
   async getMinistryTeam(id: string): Promise<MinistryTeam | undefined> {

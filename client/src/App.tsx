@@ -24,6 +24,7 @@ import ChurchSettings from "@/pages/church-settings";
 import InviteMembers from "@/pages/invite-members";
 import AcceptInvite from "@/pages/accept-invite";
 import MinistryTeams from "@/pages/ministry-teams";
+import TeamDirectory from "@/pages/team-directory";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -135,6 +136,7 @@ function AppContent() {
       <Route path="/events" component={Events} />
       <Route path="/messages" component={Messages} />
       <Route path="/check-in" component={CheckInPage} />
+      <Route path="/team-directory" component={TeamDirectory} />
       <Route path="/members" component={Members} />
       <Route component={NotFound} />
     </Switch>
