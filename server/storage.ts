@@ -40,6 +40,14 @@ export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   upsertUser(data: { id: string; email?: string; firstName?: string; lastName?: string; profileImageUrl?: string }): Promise<User>;
+  updateUser(userId: string, updates: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    bio?: string;
+  }): Promise<void>;
   getUsersByChurch(churchId: string): Promise<User[]>;
   updateUserRole(userId: string, role: string, churchId?: string | null): Promise<void>;
 
@@ -49,41 +57,41 @@ export interface IStorage {
   getAllChurches(): Promise<Church[]>;
   updateChurch(id: string, data: UpdateChurch): Promise<void>;
   updateChurchStatus(id: string, status: string): Promise<void>;
-  
+
   // Post operations
   getPosts(churchId: string): Promise<Post[]>;
   createPost(post: InsertPost & { churchId: string; authorId: string }): Promise<Post>;
-  
+
   // Event operations
   getEvents(churchId: string): Promise<Event[]>;
   createEvent(event: InsertEvent & { churchId: string; creatorId: string }): Promise<Event>;
   getEvent(id: string): Promise<Event | undefined>;
-  
+
   // RSVP operations
   upsertRsvp(rsvp: InsertEventRsvp & { eventId: string; userId: string }): Promise<EventRsvp>;
   getRsvpsByUser(userId: string): Promise<EventRsvp[]>;
   getRsvpsByEvent(eventId: string): Promise<EventRsvp[]>;
-  
+
   // Check-in operations
   createCheckIn(checkIn: InsertCheckIn & { userId: string; churchId: string; checkInTime: Date }): Promise<CheckIn>;
   getCheckInsByUser(userId: string): Promise<CheckIn[]>;
   getCheckInsByChurch(churchId: string, limit?: number): Promise<CheckIn[]>;
-  
+
   // Message channel operations
   getChannels(churchId: string): Promise<MessageChannel[]>;
   createChannel(channel: InsertMessageChannel & { churchId: string; createdBy: string }): Promise<MessageChannel>;
-  
+
   // Message operations
   getMessages(channelId: string): Promise<Message[]>;
   createMessage(message: InsertMessage & { channelId: string; userId: string }): Promise<Message>;
-  
+
   // Invitation operations
   createInvitation(invitation: InsertInvitation & { churchId: string; invitedBy: string; token: string; expiresAt: Date }): Promise<Invitation>;
   getInvitationsByChurch(churchId: string): Promise<Invitation[]>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
   updateInvitationStatus(token: string, status: string): Promise<void>;
   deleteInvitation(id: string): Promise<void>;
-  
+
   // Ministry Team operations
   getMinistryTeams(churchId: string): Promise<MinistryTeam[]>;
   getMinistryTeamsWithMembers(churchId: string): Promise<(MinistryTeam & { members: (TeamMember & { user: User })[] })[]>;
@@ -91,7 +99,7 @@ export interface IStorage {
   createMinistryTeam(team: InsertMinistryTeam & { churchId: string }): Promise<MinistryTeam>;
   updateMinistryTeam(id: string, data: Partial<InsertMinistryTeam>): Promise<void>;
   deleteMinistryTeam(id: string): Promise<void>;
-  
+
   // Team Member operations
   getTeamMembers(teamId: string): Promise<TeamMember[]>;
   getTeamMembersWithUserInfo(teamId: string): Promise<(TeamMember & { user: User })[]>;
@@ -108,37 +116,49 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async upsertUser(data: {
+  async upsertUser(userData: {
     id: string;
-    email?: string;
+    email: string;
     firstName?: string;
     lastName?: string;
     profileImageUrl?: string;
   }): Promise<User> {
-    const insertData: typeof users.$inferInsert = {
-      id: data.id,
-      email: data.email ?? null,
-      firstName: data.firstName ?? null,
-      lastName: data.lastName ?? null,
-      profileImageUrl: data.profileImageUrl ?? null,
-      role: "member",
-      churchId: null,
-    };
-    const [user]: User[] = await db
+    const [user] = await db
       .insert(users)
-      .values(insertData)
+      .values({
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        profileImageUrl: userData.profileImageUrl,
+        role: "member",
+      })
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          email: data.email ?? null,
-          firstName: data.firstName ?? null,
-          lastName: data.lastName ?? null,
-          profileImageUrl: data.profileImageUrl ?? null,
-          updatedAt: new Date(),
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
         },
       })
       .returning();
+
     return user;
+  }
+
+  async updateUser(userId: string, updates: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    bio?: string;
+  }): Promise<void> {
+    await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, userId));
   }
 
   async getUsersByChurch(churchId: string): Promise<User[]> {
@@ -304,7 +324,7 @@ export class DatabaseStorage implements IStorage {
       .from(checkIns)
       .where(eq(checkIns.churchId, churchId))
       .orderBy(desc(checkIns.checkInTime));
-    
+
     return limit ? await query.limit(limit) : await query;
   }
 
@@ -392,7 +412,7 @@ export class DatabaseStorage implements IStorage {
   async deleteInvitation(id: string): Promise<void> {
     await db.delete(invitations).where(eq(invitations.id, id));
   }
-  
+
   // Ministry Team operations
   async getMinistryTeams(churchId: string): Promise<MinistryTeam[]> {
     const rows = await db
@@ -402,17 +422,17 @@ export class DatabaseStorage implements IStorage {
       .orderBy(ministryTeams.name);
     return rows;
   }
-  
+
   async getMinistryTeamsWithMembers(churchId: string): Promise<(MinistryTeam & { members: (TeamMember & { user: User })[] })[]> {
     // Fetch all teams for the church
     const teams = await this.getMinistryTeams(churchId);
-    
+
     if (teams.length === 0) {
       return [];
     }
-    
+
     const teamIds = teams.map(t => t.id);
-    
+
     // Fetch all team members with user info for these teams
     const allMembers = await db
       .select({
@@ -427,7 +447,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(teamMembers.userId, users.id))
       .where(inArray(teamMembers.teamId, teamIds))
       .orderBy(teamMembers.role, teamMembers.joinedAt);
-    
+
     // Group members by team
     const membersByTeam = new Map<string, (TeamMember & { user: User })[]>();
     for (const member of allMembers) {
@@ -435,19 +455,19 @@ export class DatabaseStorage implements IStorage {
       existing.push(member);
       membersByTeam.set(member.teamId, existing);
     }
-    
+
     // Combine teams with their members
     return teams.map(team => ({
       ...team,
       members: membersByTeam.get(team.id) || [],
     }));
   }
-  
+
   async getMinistryTeam(id: string): Promise<MinistryTeam | undefined> {
     const [team] = await db.select().from(ministryTeams).where(eq(ministryTeams.id, id));
     return team;
   }
-  
+
   async createMinistryTeam(team: InsertMinistryTeam & { churchId: string }): Promise<MinistryTeam> {
     const record: typeof ministryTeams.$inferInsert = {
       name: team.name,
@@ -457,18 +477,18 @@ export class DatabaseStorage implements IStorage {
     const [newTeam] = await db.insert(ministryTeams).values(record).returning();
     return newTeam;
   }
-  
+
   async updateMinistryTeam(id: string, data: Partial<InsertMinistryTeam>): Promise<void> {
     await db
       .update(ministryTeams)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(ministryTeams.id, id));
   }
-  
+
   async deleteMinistryTeam(id: string): Promise<void> {
     await db.delete(ministryTeams).where(eq(ministryTeams.id, id));
   }
-  
+
   // Team Member operations
   async getTeamMembers(teamId: string): Promise<TeamMember[]> {
     const rows = await db
@@ -478,7 +498,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(teamMembers.joinedAt);
     return rows;
   }
-  
+
   async getTeamMembersWithUserInfo(teamId: string): Promise<(TeamMember & { user: User })[]> {
     const rows = await db
       .select({
@@ -495,7 +515,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(teamMembers.role, teamMembers.joinedAt);
     return rows;
   }
-  
+
   async getUserTeams(userId: string): Promise<(TeamMember & { team: MinistryTeam })[]> {
     const rows = await db
       .select({
@@ -512,7 +532,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(ministryTeams.name);
     return rows;
   }
-  
+
   async addTeamMember(member: InsertTeamMember & { teamId: string }): Promise<TeamMember> {
     const record: typeof teamMembers.$inferInsert = {
       teamId: member.teamId,
@@ -522,13 +542,13 @@ export class DatabaseStorage implements IStorage {
     const [newMember] = await db.insert(teamMembers).values(record).returning();
     return newMember;
   }
-  
+
   async removeTeamMember(teamId: string, userId: string): Promise<void> {
     await db
       .delete(teamMembers)
       .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
   }
-  
+
   async updateTeamMemberRole(teamId: string, userId: string, role: string): Promise<void> {
     await db
       .update(teamMembers)

@@ -73,6 +73,28 @@ export function registerRoutes(app: Express) {
     res.json(res.locals.user);
   });
 
+  // Profile management
+  app.put("/api/profile", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    const { firstName, lastName, email, phone, address, bio } = req.body;
+    
+    try {
+      await storage.updateUser(user.id, {
+        firstName,
+        lastName,
+        email,
+        phone,
+        address,
+        bio,
+      });
+      
+      const updatedUser = await storage.getUser(user.id);
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Super Admin - Church Management
   app.get("/api/admin/churches", isAuthenticated, getCurrentUser, requireSuperAdmin, async (req, res) => {
     const churches = await storage.getAllChurches();

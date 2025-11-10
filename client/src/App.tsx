@@ -139,6 +139,7 @@ function AppContent() {
       <Route path="/check-in" component={CheckInPage} />
       <Route path="/team-directory" component={TeamDirectory} />
       <Route path="/profile" component={Profile} />
+      <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route component={NotFound} />
     </Switch>
   );
