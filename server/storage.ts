@@ -10,6 +10,8 @@ import {
   messageChannels,
   messages,
   invitations,
+  ministryTeams,
+  teamMembers,
   type User,
   type Church,
   type InsertChurch,
@@ -28,6 +30,10 @@ import {
   type InsertMessage,
   type Invitation,
   type InsertInvitation,
+  type MinistryTeam,
+  type InsertMinistryTeam,
+  type TeamMember,
+  type InsertTeamMember,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -77,6 +83,21 @@ export interface IStorage {
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
   updateInvitationStatus(token: string, status: string): Promise<void>;
   deleteInvitation(id: string): Promise<void>;
+  
+  // Ministry Team operations
+  getMinistryTeams(churchId: string): Promise<MinistryTeam[]>;
+  getMinistryTeam(id: string): Promise<MinistryTeam | undefined>;
+  createMinistryTeam(team: InsertMinistryTeam & { churchId: string }): Promise<MinistryTeam>;
+  updateMinistryTeam(id: string, data: Partial<InsertMinistryTeam>): Promise<void>;
+  deleteMinistryTeam(id: string): Promise<void>;
+  
+  // Team Member operations
+  getTeamMembers(teamId: string): Promise<TeamMember[]>;
+  getTeamMembersWithUserInfo(teamId: string): Promise<(TeamMember & { user: User })[]>;
+  getUserTeams(userId: string): Promise<(TeamMember & { team: MinistryTeam })[]>;
+  addTeamMember(member: InsertTeamMember & { teamId: string }): Promise<TeamMember>;
+  removeTeamMember(teamId: string, userId: string): Promise<void>;
+  updateTeamMemberRole(teamId: string, userId: string, role: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -369,6 +390,109 @@ export class DatabaseStorage implements IStorage {
 
   async deleteInvitation(id: string): Promise<void> {
     await db.delete(invitations).where(eq(invitations.id, id));
+  }
+  
+  // Ministry Team operations
+  async getMinistryTeams(churchId: string): Promise<MinistryTeam[]> {
+    const rows = await db
+      .select()
+      .from(ministryTeams)
+      .where(eq(ministryTeams.churchId, churchId))
+      .orderBy(ministryTeams.name);
+    return rows;
+  }
+  
+  async getMinistryTeam(id: string): Promise<MinistryTeam | undefined> {
+    const [team] = await db.select().from(ministryTeams).where(eq(ministryTeams.id, id));
+    return team;
+  }
+  
+  async createMinistryTeam(team: InsertMinistryTeam & { churchId: string }): Promise<MinistryTeam> {
+    const record: typeof ministryTeams.$inferInsert = {
+      name: team.name,
+      description: team.description,
+      churchId: team.churchId,
+    };
+    const [newTeam] = await db.insert(ministryTeams).values(record).returning();
+    return newTeam;
+  }
+  
+  async updateMinistryTeam(id: string, data: Partial<InsertMinistryTeam>): Promise<void> {
+    await db
+      .update(ministryTeams)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(ministryTeams.id, id));
+  }
+  
+  async deleteMinistryTeam(id: string): Promise<void> {
+    await db.delete(ministryTeams).where(eq(ministryTeams.id, id));
+  }
+  
+  // Team Member operations
+  async getTeamMembers(teamId: string): Promise<TeamMember[]> {
+    const rows = await db
+      .select()
+      .from(teamMembers)
+      .where(eq(teamMembers.teamId, teamId))
+      .orderBy(teamMembers.joinedAt);
+    return rows;
+  }
+  
+  async getTeamMembersWithUserInfo(teamId: string): Promise<(TeamMember & { user: User })[]> {
+    const rows = await db
+      .select({
+        id: teamMembers.id,
+        teamId: teamMembers.teamId,
+        userId: teamMembers.userId,
+        role: teamMembers.role,
+        joinedAt: teamMembers.joinedAt,
+        user: users,
+      })
+      .from(teamMembers)
+      .innerJoin(users, eq(teamMembers.userId, users.id))
+      .where(eq(teamMembers.teamId, teamId))
+      .orderBy(teamMembers.role, teamMembers.joinedAt);
+    return rows;
+  }
+  
+  async getUserTeams(userId: string): Promise<(TeamMember & { team: MinistryTeam })[]> {
+    const rows = await db
+      .select({
+        id: teamMembers.id,
+        teamId: teamMembers.teamId,
+        userId: teamMembers.userId,
+        role: teamMembers.role,
+        joinedAt: teamMembers.joinedAt,
+        team: ministryTeams,
+      })
+      .from(teamMembers)
+      .innerJoin(ministryTeams, eq(teamMembers.teamId, ministryTeams.id))
+      .where(eq(teamMembers.userId, userId))
+      .orderBy(ministryTeams.name);
+    return rows;
+  }
+  
+  async addTeamMember(member: InsertTeamMember & { teamId: string }): Promise<TeamMember> {
+    const record: typeof teamMembers.$inferInsert = {
+      teamId: member.teamId,
+      userId: member.userId,
+      role: member.role,
+    };
+    const [newMember] = await db.insert(teamMembers).values(record).returning();
+    return newMember;
+  }
+  
+  async removeTeamMember(teamId: string, userId: string): Promise<void> {
+    await db
+      .delete(teamMembers)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+  }
+  
+  async updateTeamMemberRole(teamId: string, userId: string, role: string): Promise<void> {
+    await db
+      .update(teamMembers)
+      .set({ role })
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
   }
 }
 

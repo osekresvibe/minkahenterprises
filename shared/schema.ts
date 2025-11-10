@@ -21,6 +21,7 @@ export const userRoleEnum = pgEnum("user_role", ["super_admin", "church_admin", 
 export const churchStatusEnum = pgEnum("church_status", ["pending", "approved", "rejected"]);
 export const eventRsvpStatusEnum = pgEnum("event_rsvp_status", ["going", "maybe", "not_going"]);
 export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "accepted", "declined", "expired"]);
+export const ministryTeamRoleEnum = pgEnum("ministry_team_role", ["leader", "co_leader", "member", "volunteer"]);
 
 // Session storage table - required for Replit Auth
 export const sessions = pgTable(
@@ -177,6 +178,30 @@ export const messages = pgTable("messages", {
   index("messages_created_idx").on(table.createdAt),
 ]);
 
+// Ministry Teams table - for organizing church members into ministry groups
+export const ministryTeams = pgTable("ministry_teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  churchId: varchar("church_id").notNull().references(() => churches.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("ministry_teams_church_idx").on(table.churchId),
+]);
+
+// Team Members table - junction table for ministry team assignments
+export const teamMembers = pgTable("team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull().references(() => ministryTeams.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: ministryTeamRoleEnum("role").notNull().default("member"),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+}, (table) => [
+  index("team_members_team_idx").on(table.teamId),
+  index("team_members_user_idx").on(table.userId),
+]);
+
 // Define relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   church: one(churches, {
@@ -266,6 +291,25 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   }),
 }));
 
+export const ministryTeamsRelations = relations(ministryTeams, ({ one, many }) => ({
+  church: one(churches, {
+    fields: [ministryTeams.churchId],
+    references: [churches.id],
+  }),
+  members: many(teamMembers),
+}));
+
+export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
+  team: one(ministryTeams, {
+    fields: [teamMembers.teamId],
+    references: [ministryTeams.id],
+  }),
+  user: one(users, {
+    fields: [teamMembers.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas for validation
 export const upsertUserSchema = createInsertSchema(users).extend({
   email: z.string().email().nullable().optional(),
@@ -327,6 +371,18 @@ export const insertInvitationSchema = createInsertSchema(invitations).pick({
   email: z.string().email("Invalid email address"),
 });
 
+export const insertMinistryTeamSchema = createInsertSchema(ministryTeams).pick({
+  name: true,
+  description: true,
+}).extend({
+  name: z.string().min(1, "Team name is required"),
+});
+
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).pick({
+  userId: true,
+  role: true,
+});
+
 // TypeScript types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -347,3 +403,7 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 export type Invitation = typeof invitations.$inferSelect;
+export type InsertMinistryTeam = z.infer<typeof insertMinistryTeamSchema>;
+export type MinistryTeam = typeof ministryTeams.$inferSelect;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+export type TeamMember = typeof teamMembers.$inferSelect;
