@@ -6,7 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageSquare, Send, Hash } from "lucide-react";
+import { MessageSquare, Send, Hash, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import type { Message, MessageChannel, User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -17,6 +19,9 @@ export default function Messages() {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messageContent, setMessageContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false);
+  const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelDescription, setNewChannelDescription] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -79,6 +84,38 @@ export default function Messages() {
     },
   });
 
+  const createChannelMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string }) => {
+      return await apiRequest("/api/channels", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/channels"] });
+      setIsCreateChannelOpen(false);
+      setNewChannelName("");
+      setNewChannelDescription("");
+      toast({ title: "Channel created successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to create channel", variant: "destructive" });
+    },
+  });
+
+  const handleCreateChannel = () => {
+    if (!newChannelName.trim()) {
+      toast({ title: "Channel name is required", variant: "destructive" });
+      return;
+    }
+    createChannelMutation.mutate({
+      name: newChannelName,
+      description: newChannelDescription || undefined,
+    });
+  };
+
+
   // Auto-scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -116,11 +153,51 @@ export default function Messages() {
     <div className="flex h-[calc(100vh-4rem)]">
       {/* Channels List */}
       <div className="w-64 border-r border-border bg-sidebar flex flex-col">
-        <div className="p-4 border-b border-sidebar-border">
+        <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
           <h2 className="font-semibold text-sidebar-foreground flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
             Channels
           </h2>
+          <Dialog open={isCreateChannelOpen} onOpenChange={setIsCreateChannelOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Channel</DialogTitle>
+                <DialogDescription>
+                  Create a new channel for your church community to communicate.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="channel-name">Channel Name</Label>
+                  <Input
+                    id="channel-name"
+                    placeholder="e.g., announcements"
+                    value={newChannelName}
+                    onChange={(e) => setNewChannelName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="channel-description">Description (Optional)</Label>
+                  <Input
+                    id="channel-description"
+                    placeholder="Brief description of the channel..."
+                    value={newChannelDescription}
+                    onChange={(e) => setNewChannelDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreateChannel} disabled={createChannelMutation.isPending}>
+                  {createChannelMutation.isPending ? "Creating..." : "Create Channel"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
         <div className="flex-1 overflow-y-auto">
           {channels.length === 0 ? (

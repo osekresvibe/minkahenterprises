@@ -116,7 +116,7 @@ export default function InviteMembers() {
     },
   });
 
-  const { data: user } = useQuery<User>({
+  const { data: userQueryData } = useQuery<User>({
     queryKey: ["/api/auth/user"],
   });
 

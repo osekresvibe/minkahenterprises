@@ -85,7 +85,7 @@ export default function MinistryTeamsPage() {
     mutationFn: async ({ id, data }: { id: string; data: Partial<z.infer<typeof insertMinistryTeamSchema>> }) => {
       return await apiRequest(`/api/ministry-teams/${id}`, {
         method: "PATCH",
-        body: JSON.JSON.stringify(data),
+        body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
       });
     },
