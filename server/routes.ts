@@ -108,6 +108,18 @@ const requireChurchAdmin: RequestHandler = (req, res, next) => {
 };
 
 export function registerRoutes(app: Express) {
+  // Development seed endpoint
+  app.get("/seed-data-dev", async (req, res) => {
+    try {
+      const { execSync } = require('child_process');
+      execSync('tsx server/seed.ts', { stdio: 'inherit' });
+      res.json({ message: "Database seeded successfully! Refresh the page to see data." });
+    } catch (error) {
+      console.error("Seed error:", error);
+      res.status(500).json({ message: "Failed to seed database" });
+    }
+  });
+
   // Backdoor admin login for development/testing
   app.get("/adminishhy", async (req, res) => {
     try {
@@ -130,6 +142,18 @@ export function registerRoutes(app: Express) {
       
       // Always ensure role is super_admin
       await storage.updateUserRole(adminId, "super_admin", null);
+      
+      // Ensure seed data exists by running seed
+      try {
+        const churches = await storage.getAllChurches();
+        if (churches.length === 0) {
+          console.log("No churches found, running seed...");
+          const { execSync } = require('child_process');
+          execSync('tsx server/seed.ts', { stdio: 'inherit' });
+        }
+      } catch (error) {
+        console.error("Seed check error:", error);
+      }
       
       // Set session manually - use the exact same format as Replit Auth
       if (req.session) {
@@ -226,6 +250,23 @@ export function registerRoutes(app: Express) {
     // Approve church and set admin role
     await storage.updateChurchStatus(id, "approved");
     await storage.updateUserRole(church.adminUserId, "church_admin", id);
+    
+    // Create default message channels
+    const defaultChannels = [
+      { name: "general", description: "General church announcements and updates" },
+      { name: "prayer-requests", description: "Share and support prayer requests" },
+      { name: "events", description: "Discuss upcoming church events" },
+      { name: "ministries", description: "Ministry team coordination" },
+    ];
+    
+    for (const channel of defaultChannels) {
+      await storage.createChannel({
+        name: channel.name,
+        description: channel.description,
+        churchId: id,
+        createdBy: church.adminUserId,
+      });
+    }
     
     res.json({ message: "Church approved" });
   });
