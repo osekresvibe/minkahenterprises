@@ -10,11 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Church, ActivityLog } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { Input } from "@/components/ui/input"; // Assuming Input component is needed for search
 
 export default function SuperAdminDashboard() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [selectedChurch, setSelectedChurch] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>(""); // State for search query
 
   // Redirect if not super admin
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function SuperAdminDashboard() {
   const { data: recentActivity = [] } = useQuery<ActivityLog[]>({
     queryKey: ["/api/admin/activity", selectedChurch],
     queryFn: async () => {
-      const url = selectedChurch 
+      const url = selectedChurch
         ? `/api/admin/activity?churchId=${selectedChurch}&limit=20`
         : "/api/admin/activity?limit=20";
       return await apiRequest("GET", url);
@@ -141,7 +143,7 @@ export default function SuperAdminDashboard() {
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-    
+
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
