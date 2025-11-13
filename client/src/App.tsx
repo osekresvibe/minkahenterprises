@@ -27,6 +27,7 @@ import MinistryTeams from "@/pages/ministry-teams";
 import TeamDirectory from "@/pages/team-directory";
 import Profile from "@/pages/profile";
 import MediaLibrary from "@/pages/media-library";
+import CreatePost from "@/pages/create-post";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -115,10 +116,11 @@ function AppContent() {
                 <Route path="/dashboard" component={ChurchAdminDashboard} />
                 <Route path="/members" component={Members} />
                 <Route path="/invite-members" component={InviteMembers} />
-                <Route path="/ministry-teams" component={MinistryTeams} />
+                <Route path="/posts/new" component={CreatePost} />
                 <Route path="/events" component={Events} />
                 <Route path="/messages" component={Messages} />
                 <Route path="/media" component={MediaLibrary} />
+                <Route path="/ministry-teams" component={MinistryTeams} />
                 <Route path="/check-ins" component={CheckInPage} />
                 <Route path="/settings" component={ChurchSettings} />
                 <Route path="/accept-invite/:token" component={AcceptInvite} />

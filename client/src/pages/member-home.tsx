@@ -120,11 +120,19 @@ export default function MemberHome() {
                   <Card key={post.id} className="hover-elevate transition-shadow duration-200" data-testid={`post-${post.id}`}>
                     {post.imageUrl && (
                       <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
-                        <img
-                          src={post.imageUrl}
-                          alt={post.title}
-                          className="w-full h-full object-cover"
-                        />
+                        {post.imageUrl.match(/\.(mp4|mpeg|quicktime|webm)$/i) ? (
+                          <video
+                            src={post.imageUrl}
+                            controls
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            src={post.imageUrl}
+                            alt={post.title}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
                       </div>
                     )}
                     {post.videoUrl && (
