@@ -127,6 +127,15 @@ export default function MemberHome() {
                         />
                       </div>
                     )}
+                    {post.videoUrl && (
+                      <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
+                        <video
+                          src={post.videoUrl}
+                          controls
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
                     <CardHeader>
                       <div className="flex items-start gap-3">
                         <Avatar className="h-10 w-10">

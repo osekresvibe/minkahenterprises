@@ -102,6 +102,7 @@ export const posts = pgTable("posts", {
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content").notNull(),
   imageUrl: varchar("image_url"),
+  videoUrl: varchar("video_url"),
   isPinned: boolean("is_pinned").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -417,6 +418,7 @@ export const insertPostSchema = createInsertSchema(posts).pick({
   title: true,
   content: true,
   imageUrl: true,
+  videoUrl: true,
   isPinned: true,
 });
 

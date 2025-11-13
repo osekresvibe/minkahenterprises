@@ -746,6 +746,53 @@ export function registerRoutes(app: Express) {
     res.json(posts);
   });
 
+  app.post("/api/posts/upload", isAuthenticated, getCurrentUser, requireChurchAdmin, upload.single('media'), async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+
+    try {
+      let mediaUrl = null;
+      let mediaType = null;
+
+      if (req.file) {
+        mediaUrl = `/uploads/${req.file.filename}`;
+        mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      }
+
+      const postData = {
+        title: req.body.title,
+        content: req.body.content,
+        isPinned: req.body.isPinned === 'true',
+        imageUrl: mediaType === 'image' ? mediaUrl : undefined,
+        videoUrl: mediaType === 'video' ? mediaUrl : undefined,
+      };
+
+      const post = await storage.createPost({
+        ...postData,
+        churchId: user.churchId,
+        authorId: user.id,
+      });
+
+      // Log activity
+      await storage.logActivity({
+        churchId: user.churchId,
+        userId: user.id,
+        action: 'post_created',
+        entityType: 'post',
+        entityId: post.id,
+        metadata: { title: post.title, hasMedia: !!mediaUrl },
+      });
+
+      res.status(201).json(post);
+    } catch (error) {
+      console.error("Post creation error:", error);
+      res.status(400).json({ message: "Failed to create post" });
+    }
+  });
+
   app.post("/api/posts", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
     

@@ -1,16 +1,28 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar, MessageSquare, UserCheck, Plus } from "lucide-react";
-import type { User, Event, CheckIn } from "@shared/schema";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Building2, Users, Calendar, MessageSquare, UserPlus, FileText, Upload, X, Image as ImageIcon, Video } from "lucide-react";
+import type { User, Event, Post } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import { Link } from "wouter";
 
 export default function ChurchAdminDashboard() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState("");
+  const [postContent, setPostContent] = useState("");
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || user?.role !== "church_admin")) {
@@ -40,6 +52,71 @@ export default function ChurchAdminDashboard() {
     enabled: !!user && user.role === "church_admin",
   });
 
+  const createPostMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch("/api/posts/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to create post");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      toast({
+        title: "Success",
+        description: "Post created successfully",
+      });
+      setIsCreatePostOpen(false);
+      setPostTitle("");
+      setPostContent("");
+      setSelectedMedia(null);
+      setMediaPreview("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to create post",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedMedia(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMediaPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCreatePost = () => {
+    const formData = new FormData();
+    formData.append("title", postTitle);
+    formData.append("content", postContent);
+    if (selectedMedia) {
+      formData.append("media", selectedMedia);
+    }
+    createPostMutation.mutate(formData);
+  };
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -63,6 +140,104 @@ export default function ChurchAdminDashboard() {
             Manage your church community
           </p>
         </div>
+        <Dialog open={isCreatePostOpen} onOpenChange={setIsCreatePostOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={() => setIsCreatePostOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Post
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Create New Post</DialogTitle>
+              <DialogDescription>
+                Share an update with the community.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="post-title">Title</Label>
+                <Input
+                  id="post-title"
+                  value={postTitle}
+                  onChange={(e) => setPostTitle(e.target.value)}
+                  placeholder="Enter post title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="post-content">Content</Label>
+                <Textarea
+                  id="post-content"
+                  value={postContent}
+                  onChange={(e) => setPostContent(e.target.value)}
+                  placeholder="Enter post content"
+                  rows={4}
+                />
+              </div>
+
+              {/* Media Upload */}
+              <div className="space-y-2">
+                <Label>Photo or Video (Optional)</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleMediaSelect}
+                  className="hidden"
+                />
+                {!selectedMedia ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Image or Video
+                  </Button>
+                ) : (
+                  <div className="relative">
+                    <div className="border rounded-lg p-2">
+                      {selectedMedia.type.startsWith('video/') ? (
+                        <div className="flex items-center gap-2">
+                          <Video className="h-8 w-8 text-muted-foreground" />
+                          <span className="text-sm">{selectedMedia.name}</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={mediaPreview}
+                          alt="Preview"
+                          className="w-full h-48 object-cover rounded"
+                        />
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-0 right-0"
+                      onClick={() => {
+                        setSelectedMedia(null);
+                        setMediaPreview("");
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={handleCreatePost}
+                disabled={!postTitle || !postContent || createPostMutation.isPending}
+              >
+                {createPostMutation.isPending ? "Creating..." : "Create Post"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats Cards */}
