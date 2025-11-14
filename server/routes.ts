@@ -387,6 +387,48 @@ export function registerRoutes(app: Express) {
       // Check if email is already a member of this church
       const existingMembers = await storage.getUsersByChurch(user.churchId);
       const isAlreadyMember = existingMembers.some(m => m.email === invitationData.email);
+
+
+  // Get individual member details
+  app.get("/api/members/:userId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userId = req.params.userId;
+      const user = req.user as User;
+
+      // Only church admins and members can view member profiles
+      if (user.role !== "church_admin" && user.role !== "member") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Get the requested user
+      const [requestedUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!requestedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Check if they're in the same church
+      if (user.role === "member" || user.role === "church_admin") {
+        if (requestedUser.churchId !== user.churchId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      res.json(requestedUser);
+    } catch (error) {
+      console.error("Failed to fetch user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
       
       if (isAlreadyMember) {
         return res.status(400).json({ message: "User is already a member of this church" });

@@ -20,7 +20,7 @@ import Messages from "@/pages/messages";
 import CheckInPage from "@/pages/check-in";
 import RegisterChurch from "@/pages/register-church";
 import Members from "@/pages/members";
-import ChurchSettings from "@/pages/church-settings";
+import UserProfile from "@/pages/user-profile";
 import InviteMembers from "@/pages/invite-members";
 import AcceptInvite from "@/pages/accept-invite";
 import MinistryTeams from "@/pages/ministry-teams";
@@ -139,6 +139,7 @@ function AppContent() {
   return (
     <Switch>
       <Route path="/" component={MemberHome} />
+      <Route path="/members/:userId" component={UserProfile} />
       <Route path="/events" component={Events} />
       <Route path="/messages" component={Messages} />
       <Route path="/media" component={MediaLibrary} />
