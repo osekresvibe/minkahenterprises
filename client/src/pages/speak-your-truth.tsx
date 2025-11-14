@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Image, Video, X, Camera, MapPin, Share2, Facebook, Twitter, Instagram, Linkedin, Link as LinkIcon } from "lucide-react";
+import { Upload, Image, Video, X, Camera, MapPin, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon } from "lucide-react";
+import { Instagram } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { Post } from "@shared/schema";
 
@@ -164,11 +165,20 @@ export default function SpeakYourTruth() {
     const shareUrls: Record<string, string> = {
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
       twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+      instagram: `https://www.instagram.com/`, // Instagram doesn't support direct URL sharing, opens Instagram
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
       whatsapp: `https://wa.me/?text=${text}%20${url}`,
     };
 
-    if (shareUrls[platform]) {
+    if (platform === 'instagram') {
+      // For Instagram, copy link and notify user to paste in their bio/story
+      navigator.clipboard.writeText(postUrl);
+      toast({
+        title: "Link copied for Instagram!",
+        description: "Paste this link in your Instagram bio or story",
+      });
+      window.open(shareUrls[platform], '_blank');
+    } else if (shareUrls[platform]) {
       window.open(shareUrls[platform], '_blank', 'width=600,height=400');
     }
   };
@@ -206,6 +216,9 @@ export default function SpeakYourTruth() {
             </Button>
             <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'twitter')}>
               <Twitter className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'instagram')}>
+              <Instagram className="h-4 w-4" />
             </Button>
             <Button size="sm" variant="ghost" onClick={() => copyPostLink(postUrl)}>
               <LinkIcon className="h-4 w-4" />
@@ -456,6 +469,13 @@ export default function SpeakYourTruth() {
                       onClick={() => shareToSocialMedia(`${window.location.origin}/truth/${post.id}`, 'twitter')}
                     >
                       <Twitter className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => shareToSocialMedia(`${window.location.origin}/truth/${post.id}`, 'instagram')}
+                    >
+                      <Instagram className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
