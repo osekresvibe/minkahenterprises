@@ -10,6 +10,7 @@ import {
   ChevronRight,
   UsersRound,
   Image,
+  Megaphone,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -59,6 +60,16 @@ export function AppSidebar() {
     { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Check In", url: "/check-in", icon: UserCheck },
     { title: "Ministry Teams", url: "/team-directory", icon: UsersRound },
+    {
+      title: "Media",
+      url: "/media",
+      icon: Image,
+    },
+    {
+      title: "Speak Your Truth",
+      url: "/speak-your-truth",
+      icon: Megaphone,
+    },
   ];
 
   const menuItems = isSuperAdmin

@@ -64,6 +64,9 @@ export interface IStorage {
 
   // Post operations
   getPosts(churchId: string): Promise<Post[]>;
+  getTruthPostsByUser(userId: string): Promise<Post[]>;
+  getTruthPost(postId: string): Promise<Post | undefined>;
+  discoverTruthPosts(location?: string): Promise<Post[]>;
   createPost(post: InsertPost & { churchId: string; authorId: string }): Promise<Post>;
 
   // Event operations
@@ -262,12 +265,30 @@ export class DatabaseStorage implements IStorage {
 
   // Post operations
   async getPosts(churchId: string): Promise<Post[]> {
-    const rows = await db
-      .select()
-      .from(posts)
+    return db.select().from(posts)
       .where(eq(posts.churchId, churchId))
       .orderBy(desc(posts.isPinned), desc(posts.createdAt));
-    return rows;
+  }
+
+  async getTruthPostsByUser(userId: string): Promise<Post[]> {
+    return db.select().from(posts)
+      .where(eq(posts.authorId, userId))
+      .orderBy(desc(posts.createdAt));
+  }
+
+  async getTruthPost(postId: string): Promise<Post | undefined> {
+    const result = await db.select().from(posts)
+      .where(eq(posts.id, postId))
+      .limit(1);
+    return result[0];
+  }
+
+  async discoverTruthPosts(location?: string): Promise<Post[]> {
+    // For now, return all public posts
+    // In production, you'd filter by location or implement a discovery algorithm
+    return db.select().from(posts)
+      .orderBy(desc(posts.createdAt))
+      .limit(50);
   }
 
   async createPost(post: InsertPost & { churchId: string; authorId: string }): Promise<Post> {

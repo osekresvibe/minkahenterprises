@@ -734,6 +734,52 @@ export function registerRoutes(app: Express) {
     res.json(users);
   });
 
+  // Truth Posts - Personal posts for social sharing
+  app.get("/api/truth-posts/my-posts", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    const posts = await storage.getTruthPostsByUser(user.id);
+    res.json(posts);
+  });
+
+  app.get("/api/truth-posts/discover", isAuthenticated, getCurrentUser, async (req, res) => {
+    const location = req.query.location as string | undefined;
+    const posts = await storage.discoverTruthPosts(location);
+    res.json(posts);
+  });
+
+  app.get("/api/truth-posts/:id", async (req, res) => {
+    const { id } = req.params;
+    const post = await storage.getTruthPost(id);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+    res.json(post);
+  });
+
+  app.post("/api/truth-posts", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    try {
+      const postData = {
+        title: "Truth Post",
+        content: req.body.content,
+        imageUrl: req.body.imageUrl,
+        videoUrl: req.body.videoUrl,
+        isPinned: false,
+      };
+      
+      const post = await storage.createPost({
+        ...postData,
+        churchId: user.churchId || "public",
+        authorId: user.id,
+      });
+      
+      res.status(201).json(post);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid truth post data" });
+    }
+  });
+
   // Posts
   app.get("/api/posts", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;

@@ -28,6 +28,7 @@ import TeamDirectory from "@/pages/team-directory";
 import Profile from "@/pages/profile";
 import MediaLibrary from "@/pages/media-library";
 import CreatePost from "@/pages/create-post";
+import SpeakYourTruth from "@/pages/speak-your-truth";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -145,6 +146,7 @@ function AppContent() {
       <Route path="/team-directory" component={TeamDirectory} />
       <Route path="/profile" component={Profile} />
       <Route path="/accept-invite/:token" component={AcceptInvite} />
+      <Route path="/speak-your-truth" component={SpeakYourTruth} />
       <Route component={NotFound} />
     </Switch>
   );
