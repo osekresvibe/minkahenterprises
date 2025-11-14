@@ -4,11 +4,12 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { lazy } from 'react';
 
 // Pages
 import Landing from "@/pages/landing";
@@ -30,6 +31,7 @@ import MediaLibrary from "@/pages/media-library";
 import CreatePost from "@/pages/create-post";
 import SpeakYourTruth from "@/pages/speak-your-truth";
 import NotFound from "@/pages/not-found";
+import ChurchSettings from "@/pages/church-settings";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -116,6 +118,7 @@ function AppContent() {
                 <Route path="/" component={ChurchAdminDashboard} />
                 <Route path="/dashboard" component={ChurchAdminDashboard} />
                 <Route path="/members" component={Members} />
+                <Route path="/members/:id" component={lazy(() => import("@/pages/member-detail"))} />
                 <Route path="/invite-members" component={InviteMembers} />
                 <Route path="/posts/new" component={CreatePost} />
                 <Route path="/events" component={Events} />

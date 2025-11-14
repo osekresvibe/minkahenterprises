@@ -46,6 +46,18 @@ export const users = pgTable("users", {
   phone: varchar("phone", { length: 50 }),
   address: text("address"),
   bio: text("bio"),
+  dateOfBirth: varchar("date_of_birth"),
+  occupation: varchar("occupation"),
+  education: varchar("education"),
+  maritalStatus: varchar("marital_status"),
+  familyInfo: text("family_info"),
+  hobbies: text("hobbies"),
+  servingAreas: text("serving_areas"), // Ministry areas they're interested in
+  baptismDate: varchar("baptism_date"),
+  memberSince: varchar("member_since"),
+  socialMediaLinks: text("social_media_links"), // JSON string for flexibility
+  emergencyContactName: varchar("emergency_contact_name"),
+  emergencyContactPhone: varchar("emergency_contact_phone"),
   role: userRoleEnum("role").notNull().default("member"),
   churchId: varchar("church_id").references(() => churches.id, { onDelete: "cascade" }), // null for super_admin
   createdAt: timestamp("created_at").defaultNow().notNull(),

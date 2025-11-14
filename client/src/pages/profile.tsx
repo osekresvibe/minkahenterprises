@@ -24,6 +24,17 @@ export default function Profile() {
     phone: "",
     address: "",
     bio: "",
+    dateOfBirth: "",
+    occupation: "",
+    education: "",
+    maritalStatus: "",
+    familyInfo: "",
+    hobbies: "",
+    servingAreas: "",
+    baptismDate: "",
+    memberSince: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
   });
 
   useEffect(() => {
@@ -48,6 +59,17 @@ export default function Profile() {
         phone: user.phone || "",
         address: user.address || "",
         bio: user.bio || "",
+        dateOfBirth: user.dateOfBirth || "",
+        occupation: user.occupation || "",
+        education: user.education || "",
+        maritalStatus: user.maritalStatus || "",
+        familyInfo: user.familyInfo || "",
+        hobbies: user.hobbies || "",
+        servingAreas: user.servingAreas || "",
+        baptismDate: user.baptismDate || "",
+        memberSince: user.memberSince || "",
+        emergencyContactName: user.emergencyContactName || "",
+        emergencyContactPhone: user.emergencyContactPhone || "",
       });
     }
   }, [user]);
@@ -106,6 +128,17 @@ export default function Profile() {
         phone: user.phone || "",
         address: user.address || "",
         bio: user.bio || "",
+        dateOfBirth: user.dateOfBirth || "",
+        occupation: user.occupation || "",
+        education: user.education || "",
+        maritalStatus: user.maritalStatus || "",
+        familyInfo: user.familyInfo || "",
+        hobbies: user.hobbies || "",
+        servingAreas: user.servingAreas || "",
+        baptismDate: user.baptismDate || "",
+        memberSince: user.memberSince || "",
+        emergencyContactName: user.emergencyContactName || "",
+        emergencyContactPhone: user.emergencyContactPhone || "",
       });
     }
     setIsEditing(false);
@@ -274,6 +307,157 @@ export default function Profile() {
                   rows={4}
                   data-testid="input-bio"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) =>
+                      setFormData({ ...formData, dateOfBirth: e.target.value })
+                    }
+                    disabled={!isEditing}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maritalStatus">Marital Status</Label>
+                  <Input
+                    id="maritalStatus"
+                    value={formData.maritalStatus}
+                    onChange={(e) =>
+                      setFormData({ ...formData, maritalStatus: e.target.value })
+                    }
+                    disabled={!isEditing}
+                    placeholder="Single, Married, etc."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="occupation">Occupation</Label>
+                  <Input
+                    id="occupation"
+                    value={formData.occupation}
+                    onChange={(e) =>
+                      setFormData({ ...formData, occupation: e.target.value })
+                    }
+                    disabled={!isEditing}
+                    placeholder="Your profession"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="education">Education</Label>
+                  <Input
+                    id="education"
+                    value={formData.education}
+                    onChange={(e) =>
+                      setFormData({ ...formData, education: e.target.value })
+                    }
+                    disabled={!isEditing}
+                    placeholder="Highest level of education"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="familyInfo">Family Information</Label>
+                <Textarea
+                  id="familyInfo"
+                  value={formData.familyInfo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, familyInfo: e.target.value })
+                  }
+                  disabled={!isEditing}
+                  placeholder="Spouse, children, family details..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="hobbies">Hobbies & Interests</Label>
+                <Textarea
+                  id="hobbies"
+                  value={formData.hobbies}
+                  onChange={(e) =>
+                    setFormData({ ...formData, hobbies: e.target.value })
+                  }
+                  disabled={!isEditing}
+                  placeholder="What do you enjoy doing?"
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="servingAreas">Ministry Areas of Interest</Label>
+                <Textarea
+                  id="servingAreas"
+                  value={formData.servingAreas}
+                  onChange={(e) =>
+                    setFormData({ ...formData, servingAreas: e.target.value })
+                  }
+                  disabled={!isEditing}
+                  placeholder="Where would you like to serve?"
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="baptismDate">Baptism Date</Label>
+                  <Input
+                    id="baptismDate"
+                    type="date"
+                    value={formData.baptismDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, baptismDate: e.target.value })
+                    }
+                    disabled={!isEditing}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="memberSince">Member Since</Label>
+                  <Input
+                    id="memberSince"
+                    type="date"
+                    value={formData.memberSince}
+                    onChange={(e) =>
+                      setFormData({ ...formData, memberSince: e.target.value })
+                    }
+                    disabled={!isEditing}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
+                  <Input
+                    id="emergencyContactName"
+                    value={formData.emergencyContactName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, emergencyContactName: e.target.value })
+                    }
+                    disabled={!isEditing}
+                    placeholder="Name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
+                  <Input
+                    id="emergencyContactPhone"
+                    type="tel"
+                    value={formData.emergencyContactPhone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, emergencyContactPhone: e.target.value })
+                    }
+                    disabled={!isEditing}
+                    placeholder="Phone number"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>

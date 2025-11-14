@@ -96,12 +96,11 @@ export default function Members() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredMembers.map((member) => (
-                <Link
-                  key={member.id}
-                  href={`/members/${member.id}`}
-                  className="flex items-center gap-3 p-4 border border-border rounded-lg hover-elevate transition-shadow duration-200 cursor-pointer hover:bg-accent/50"
-                  data-testid={`card-member-${member.id}`}
-                >
+                <Link key={member.id} href={`/members/${member.id}`}>
+                  <div
+                    className="flex items-center gap-3 p-4 border border-border rounded-lg hover-elevate transition-shadow duration-200 cursor-pointer"
+                    data-testid={`card-member-${member.id}`}
+                  >
                   <Avatar className="h-12 w-12">
                     <AvatarImage
                       src={member.profileImageUrl || undefined}
@@ -127,6 +126,7 @@ export default function Members() {
                       {member.role === "church_admin" ? "Admin" : "Member"}
                     </Badge>
                   </div>
+                </div>
                 </Link>
               ))}
             </div>
