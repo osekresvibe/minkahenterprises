@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Building2, Users, Calendar, MessageSquare, UserCheck, Plus, Upload, X, Image as ImageIcon, Video } from "lucide-react";
+import { Building2, Users, Calendar, MessageSquare, UserCheck, Plus, Upload, X, Image as ImageIcon, Video, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon } from "lucide-react";
+import { Instagram } from "lucide-react";
 import type { User, Event, Post, CheckIn } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -23,6 +24,38 @@ export default function ChurchAdminDashboard() {
   const [postContent, setPostContent] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string>("");
+
+  const shareToSocialMedia = (postUrl: string, platform: string, content: string) => {
+    const text = encodeURIComponent(content);
+    const url = encodeURIComponent(postUrl);
+    
+    const shareUrls: Record<string, string> = {
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+      twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+      instagram: `https://www.instagram.com/`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
+      whatsapp: `https://wa.me/?text=${text}%20${url}`,
+    };
+
+    if (platform === 'instagram') {
+      navigator.clipboard.writeText(postUrl);
+      toast({
+        title: "Link copied for Instagram!",
+        description: "Paste this link in your Instagram bio or story",
+      });
+      window.open(shareUrls[platform], '_blank');
+    } else if (shareUrls[platform]) {
+      window.open(shareUrls[platform], '_blank', 'width=600,height=400');
+    }
+  };
+
+  const copyPostLink = (postUrl: string) => {
+    navigator.clipboard.writeText(postUrl);
+    toast({
+      title: "Link copied",
+      description: "Post link copied to clipboard",
+    });
+  };
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || user?.role !== "church_admin")) {
@@ -62,12 +95,35 @@ export default function ChurchAdminDashboard() {
       if (!response.ok) throw new Error("Failed to create post");
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (newPost) => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      
+      const postUrl = `${window.location.origin}/post/${newPost.id}`;
+      
       toast({
-        title: "Success",
-        description: "Post created successfully",
+        title: "Post created! Share it now",
+        description: "Click to share on social media",
+        action: (
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'facebook', postTitle)}>
+              <Facebook className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'twitter', postTitle)}>
+              <Twitter className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'instagram', postTitle)}>
+              <Instagram className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'linkedin', postTitle)}>
+              <Linkedin className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => copyPostLink(postUrl)}>
+              <LinkIcon className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
       });
+      
       setIsCreatePostOpen(false);
       setPostTitle("");
       setPostContent("");

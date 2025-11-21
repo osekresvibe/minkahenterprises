@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Upload, Image, Video, X } from "lucide-react";
+import { Upload, Image, Video, X, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon } from "lucide-react";
+import { Instagram } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface PostFormData {
@@ -28,6 +29,38 @@ export default function CreatePost() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+
+  const shareToSocialMedia = (postUrl: string, platform: string, content: string) => {
+    const text = encodeURIComponent(content);
+    const url = encodeURIComponent(postUrl);
+    
+    const shareUrls: Record<string, string> = {
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+      twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+      instagram: `https://www.instagram.com/`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
+      whatsapp: `https://wa.me/?text=${text}%20${url}`,
+    };
+
+    if (platform === 'instagram') {
+      navigator.clipboard.writeText(postUrl);
+      toast({
+        title: "Link copied for Instagram!",
+        description: "Paste this link in your Instagram bio or story",
+      });
+      window.open(shareUrls[platform], '_blank');
+    } else if (shareUrls[platform]) {
+      window.open(shareUrls[platform], '_blank', 'width=600,height=400');
+    }
+  };
+
+  const copyPostLink = (postUrl: string) => {
+    navigator.clipboard.writeText(postUrl);
+    toast({
+      title: "Link copied",
+      description: "Post link copied to clipboard",
+    });
+  };
 
   const form = useForm<PostFormData>({
     defaultValues: {
@@ -78,12 +111,35 @@ export default function CreatePost() {
     mutationFn: async (data: PostFormData & { imageUrl?: string }) => {
       return await apiRequest("POST", "/api/posts", data);
     },
-    onSuccess: () => {
+    onSuccess: (newPost) => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      
+      const postUrl = `${window.location.origin}/post/${newPost.id}`;
+      
       toast({
-        title: "Success",
-        description: "Post created successfully",
+        title: "Post created! Share it now",
+        description: "Click to share on social media",
+        action: (
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'facebook', form.getValues('title'))}>
+              <Facebook className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'twitter', form.getValues('title'))}>
+              <Twitter className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'instagram', form.getValues('title'))}>
+              <Instagram className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'linkedin', form.getValues('title'))}>
+              <Linkedin className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => copyPostLink(postUrl)}>
+              <LinkIcon className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
       });
+      
       navigate("/");
     },
     onError: () => {
