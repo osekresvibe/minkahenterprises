@@ -31,7 +31,7 @@ import MediaLibrary from "@/pages/media-library";
 import CreatePost from "@/pages/create-post";
 import SpeakYourTruth from "@/pages/speak-your-truth";
 import NotFound from "@/pages/not-found";
-import ChurchSettings from "@/pages/church-settings";
+const ChurchSettings = lazy(() => import("@/pages/church-settings"));
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -126,6 +126,7 @@ function AppContent() {
                 <Route path="/media" component={MediaLibrary} />
                 <Route path="/ministry-teams" component={MinistryTeams} />
                 <Route path="/check-ins" component={CheckInPage} />
+                <Route path="/profile" component={Profile} />
                 <Route path="/settings" component={ChurchSettings} />
                 <Route path="/accept-invite/:token" component={AcceptInvite} />
                 <Route path="/register-church" component={RegisterChurch} />

@@ -11,6 +11,7 @@ import {
   UsersRound,
   Image,
   Megaphone,
+  User,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -52,6 +53,11 @@ export function AppSidebar() {
     { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Check-ins", url: "/check-ins", icon: UserCheck },
     { title: "Settings", url: "/settings", icon: Settings },
+    {
+      title: "My Profile",
+      url: "/profile",
+      icon: User,
+    },
   ];
 
   const memberItems = [
