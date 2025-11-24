@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Upload, Image, Video, X, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Upload, Image, Video, X, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, Download } from "lucide-react";
 import { Instagram } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { generatePostImage, downloadImage, shareImageToClipboard, type PostImageData } from "@/lib/shareImage";
 
 interface PostFormData {
   title: string;
@@ -29,6 +31,11 @@ export default function CreatePost() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [shareImageData, setShareImageData] = useState<{ title: string; content: string; imageUrl?: string } | null>(null);
+  const [shareImagePreview, setShareImagePreview] = useState<string | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [lastUploadedImageUrl, setLastUploadedImageUrl] = useState<string | undefined>(undefined);
 
   const shareToSocialMedia = (postUrl: string, platform: string, content: string) => {
     const text = encodeURIComponent(content);
@@ -60,6 +67,68 @@ export default function CreatePost() {
       title: "Link copied",
       description: "Post link copied to clipboard",
     });
+  };
+
+  const handleGenerateAndOpenShareModal = async (title: string, content: string, imageUrl?: string) => {
+    setShareImageData({ title, content, imageUrl });
+    setIsShareModalOpen(true);
+    setIsGeneratingImage(true);
+
+    try {
+      const imageData: PostImageData = {
+        title,
+        content,
+        imageUrl,
+        organizationName: "Our Community",
+        createdAt: new Date(),
+      };
+
+      const blob = await generatePostImage(imageData);
+      const previewUrl = URL.createObjectURL(blob);
+      setShareImagePreview(previewUrl);
+      
+      // Store blob for download
+      (window as any).__shareImageBlob = blob;
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate share image",
+        variant: "destructive",
+      });
+      setIsShareModalOpen(false);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    const blob = (window as any).__shareImageBlob;
+    if (blob && shareImageData) {
+      downloadImage(blob, `${shareImageData.title.replace(/\s+/g, "-")}.png`);
+      toast({
+        title: "Downloaded",
+        description: "Image saved to your downloads folder",
+      });
+    }
+  };
+
+  const handleCopyImageToClipboard = async () => {
+    const blob = (window as any).__shareImageBlob;
+    if (blob) {
+      try {
+        await shareImageToClipboard(blob);
+        toast({
+          title: "Copied",
+          description: "Image copied to clipboard, ready to paste",
+        });
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to copy image. Try downloading instead",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const form = useForm<PostFormData>({
@@ -111,30 +180,30 @@ export default function CreatePost() {
     mutationFn: async (data: PostFormData & { imageUrl?: string }) => {
       return await apiRequest("POST", "/api/posts", data);
     },
-    onSuccess: (newPost) => {
+    onSuccess: (newPost: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       
       const postUrl = `${window.location.origin}/post/${newPost.id}`;
+      const title = form.getValues('title');
+      const content = form.getValues('content');
       
       toast({
         title: "Post created! Share it now",
-        description: "Click to share on social media",
+        description: "Generate an image to share on social media",
         action: (
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'facebook', form.getValues('title'))}>
+            <Button size="sm" variant="default" onClick={() => handleGenerateAndOpenShareModal(title, content, lastUploadedImageUrl)}>
+              <Share2 className="h-4 w-4 mr-1" />
+              Share as Image
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'facebook', title)}>
               <Facebook className="h-4 w-4" />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'twitter', form.getValues('title'))}>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'twitter', title)}>
               <Twitter className="h-4 w-4" />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'instagram', form.getValues('title'))}>
+            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'instagram', title)}>
               <Instagram className="h-4 w-4" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'linkedin', form.getValues('title'))}>
-              <Linkedin className="h-4 w-4" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => copyPostLink(postUrl)}>
-              <LinkIcon className="h-4 w-4" />
             </Button>
           </div>
         ),
@@ -174,6 +243,7 @@ export default function CreatePost() {
 
         const mediaFile = await response.json();
         imageUrl = mediaFile.fileUrl;
+        setLastUploadedImageUrl(imageUrl);
       } catch (error) {
         toast({
           title: "Upload failed",
@@ -186,7 +256,7 @@ export default function CreatePost() {
       setUploadingMedia(false);
     }
 
-    createPostMutation.mutate({ ...data, imageUrl });
+    createPostMutation.mutate({ ...data, imageUrl: imageUrl || undefined });
   };
 
   return (
@@ -324,6 +394,68 @@ export default function CreatePost() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Share as Image Modal */}
+      <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Share as Image</DialogTitle>
+            <DialogDescription>
+              Download your post as an image to share on social media
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {isGeneratingImage ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : shareImagePreview ? (
+              <div className="space-y-4">
+                <div className="border border-border rounded-lg overflow-hidden bg-muted">
+                  <img 
+                    src={shareImagePreview} 
+                    alt="Post preview"
+                    className="w-full h-auto"
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  This image is ready to download and share on your favorite social media platforms
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsShareModalOpen(false)}
+              data-testid="button-close-share"
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCopyImageToClipboard}
+              disabled={isGeneratingImage || !shareImagePreview}
+              data-testid="button-copy-image"
+            >
+              Copy to Clipboard
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDownloadImage}
+              disabled={isGeneratingImage || !shareImagePreview}
+              data-testid="button-download-image"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Image
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
