@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
 import type { User } from "@shared/schema";
 import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema } from "@shared/schema";
+import { z } from "zod";
 import crypto from "crypto";
 import multer from "multer";
 import path from "path";
@@ -721,8 +722,12 @@ export function registerRoutes(app: Express) {
     const user = res.locals.user as User;
     const { role } = req.body;
     
-    if (!role) {
-      return res.status(400).json({ message: "Role is required" });
+    // Validate role
+    const roleSchema = z.enum(["leader", "co_leader", "member", "volunteer"]);
+    const roleValidation = roleSchema.safeParse(role);
+    
+    if (!roleValidation.success) {
+      return res.status(400).json({ message: "Invalid role. Must be one of: leader, co_leader, member, volunteer" });
     }
     
     const team = await storage.getMinistryTeam(teamId);
@@ -736,7 +741,7 @@ export function registerRoutes(app: Express) {
       return res.status(403).json({ message: "Forbidden" });
     }
     
-    await storage.updateTeamMemberRole(teamId, userId, role);
+    await storage.updateTeamMemberRole(teamId, userId, roleValidation.data);
     res.json({ message: "Member role updated successfully" });
   });
   
