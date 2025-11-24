@@ -19,6 +19,13 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useLocation } from "wouter";
@@ -52,6 +59,7 @@ export default function RegisterChurch() {
       website: "",
       logoUrl: "",
       bannerUrl: "",
+      organizationType: "church",
     },
   });
 
@@ -123,10 +131,39 @@ export default function RegisterChurch() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Church Name *</FormLabel>
+                      <FormLabel>Organization Name *</FormLabel>
                       <FormControl>
                         <Input {...field} placeholder="Community Church" data-testid="input-church-name" />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="organizationType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Organization Type *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-organization-type">
+                            <SelectValue placeholder="Select organization type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="church">Church</SelectItem>
+                          <SelectItem value="nonprofit">Non-Profit Organization</SelectItem>
+                          <SelectItem value="business">Business</SelectItem>
+                          <SelectItem value="club">Club or Group</SelectItem>
+                          <SelectItem value="community">Community Organization</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Select the type of organization you're registering
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

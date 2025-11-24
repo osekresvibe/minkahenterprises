@@ -19,6 +19,7 @@ import { z } from "zod";
 // Enums
 export const userRoleEnum = pgEnum("user_role", ["super_admin", "church_admin", "member"]);
 export const churchStatusEnum = pgEnum("church_status", ["pending", "approved", "rejected"]);
+export const organizationTypeEnum = pgEnum("organization_type", ["church", "nonprofit", "business", "club", "community", "other"]);
 export const eventRsvpStatusEnum = pgEnum("event_rsvp_status", ["going", "maybe", "not_going"]);
 export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "accepted", "declined", "expired"]);
 export const ministryTeamRoleEnum = pgEnum("ministry_team_role", ["leader", "co_leader", "member", "volunteer"]);
@@ -67,7 +68,7 @@ export const users = pgTable("users", {
   index("users_role_idx").on(table.role),
 ]);
 
-// Churches table - multi-tenant core entity
+// Churches table - multi-tenant core entity (supports churches and other organizations)
 export const churches = pgTable("churches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
@@ -78,6 +79,7 @@ export const churches = pgTable("churches", {
   website: varchar("website", { length: 255 }),
   logoUrl: varchar("logo_url"),
   bannerUrl: varchar("banner_url"),
+  organizationType: organizationTypeEnum("organization_type").notNull().default("church"),
   status: churchStatusEnum("status").notNull().default("pending"),
   adminUserId: varchar("admin_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -85,6 +87,7 @@ export const churches = pgTable("churches", {
 }, (table) => [
   index("churches_status_idx").on(table.status),
   index("churches_admin_idx").on(table.adminUserId),
+  index("churches_type_idx").on(table.organizationType),
 ]);
 
 // Invitations table - for inviting new members to churches
@@ -420,6 +423,7 @@ export const insertChurchSchema = createInsertSchema(churches).pick({
   website: true,
   logoUrl: true,
   bannerUrl: true,
+  organizationType: true,
 });
 
 export const updateChurchSchema = insertChurchSchema.partial().extend({
