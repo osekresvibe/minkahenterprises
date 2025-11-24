@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { User, Mail, Phone, MapPin, Calendar, ArrowLeft } from "lucide-react";
 import type { User as UserType } from "@shared/schema";
 import { useRoute, Link } from "wouter";
@@ -174,8 +175,4 @@ export default function UserProfile() {
       </div>
     </div>
   );
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={className}>{children}</label>;
 }
