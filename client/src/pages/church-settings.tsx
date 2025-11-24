@@ -46,17 +46,32 @@ export default function ChurchSettings() {
 
   const form = useForm<UpdateChurch>({
     resolver: zodResolver(updateChurchSchema),
-    values: church ? {
-      name: church.name,
-      description: church.description || "",
-      address: church.address || "",
-      phone: church.phone || "",
-      email: church.email || "",
-      website: church.website || "",
-      logoUrl: church.logoUrl || "",
-      bannerUrl: church.bannerUrl || "",
-    } : undefined,
+    defaultValues: {
+      name: "",
+      description: "",
+      address: "",
+      phone: "",
+      email: "",
+      website: "",
+      logoUrl: "",
+      bannerUrl: "",
+    },
   });
+
+  useEffect(() => {
+    if (church) {
+      form.reset({
+        name: church.name,
+        description: church.description || "",
+        address: church.address || "",
+        phone: church.phone || "",
+        email: church.email || "",
+        website: church.website || "",
+        logoUrl: church.logoUrl || "",
+        bannerUrl: church.bannerUrl || "",
+      });
+    }
+  }, [church, form]);
 
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateChurch) => {
