@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Building2, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { updateChurchSchema, type UpdateChurch, type Church } from "@shared/schema";
+import { updateChurchSchema, type Church } from "@shared/schema";
 import {
   Form,
   FormControl,
@@ -21,6 +21,17 @@ import {
 } from "@/components/ui/form";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+
+type ChurchFormData = {
+  name: string;
+  description?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logoUrl?: string;
+  bannerUrl?: string;
+};
 
 export default function ChurchSettings() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -44,7 +55,7 @@ export default function ChurchSettings() {
     enabled: !!user && user.role === "church_admin",
   });
 
-  const form = useForm<UpdateChurch>({
+  const form = useForm<ChurchFormData>({
     resolver: zodResolver(updateChurchSchema),
     defaultValues: {
       name: "",
@@ -74,7 +85,7 @@ export default function ChurchSettings() {
   }, [church, form]);
 
   const updateMutation = useMutation({
-    mutationFn: async (data: UpdateChurch) => {
+    mutationFn: async (data: ChurchFormData) => {
       await apiRequest("PATCH", "/api/churches/my-church", data);
     },
     onSuccess: () => {

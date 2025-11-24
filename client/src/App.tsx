@@ -122,6 +122,8 @@ function AppContent() {
                 <Route path="/invite-members" component={InviteMembers} />
                 <Route path="/posts/new" component={CreatePost} />
                 <Route path="/events" component={Events} />
+                <Route path="/events/new" component={Events} />
+                <Route path="/reports" component={lazy(() => import("@/pages/reports"))} />
                 <Route path="/messages" component={Messages} />
                 <Route path="/media" component={MediaLibrary} />
                 <Route path="/ministry-teams" component={MinistryTeams} />
