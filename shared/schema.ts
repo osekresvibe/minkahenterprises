@@ -12,6 +12,7 @@ import {
   index,
   jsonb,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -155,6 +156,7 @@ export const eventRsvps = pgTable("event_rsvps", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
+  uniqueIndex("event_rsvps_unique_idx").on(table.eventId, table.userId),
   index("event_rsvps_event_idx").on(table.eventId),
   index("event_rsvps_user_idx").on(table.userId),
 ]);
