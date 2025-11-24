@@ -9,7 +9,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
-import { lazy } from 'react';
 
 // Pages
 import Landing from "@/pages/landing";
@@ -31,7 +30,9 @@ import MediaLibrary from "@/pages/media-library";
 import CreatePost from "@/pages/create-post";
 import SpeakYourTruth from "@/pages/speak-your-truth";
 import NotFound from "@/pages/not-found";
-const ChurchSettings = lazy(() => import("@/pages/church-settings"));
+import ChurchSettings from "@/pages/church-settings";
+import MemberDetail from "@/pages/member-detail";
+import Reports from "@/pages/reports";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -118,12 +119,12 @@ function AppContent() {
                 <Route path="/" component={ChurchAdminDashboard} />
                 <Route path="/dashboard" component={ChurchAdminDashboard} />
                 <Route path="/members" component={Members} />
-                <Route path="/members/:id" component={lazy(() => import("@/pages/member-detail"))} />
+                <Route path="/members/:id" component={MemberDetail} />
                 <Route path="/invite-members" component={InviteMembers} />
                 <Route path="/posts/new" component={CreatePost} />
                 <Route path="/events" component={Events} />
                 <Route path="/events/new" component={Events} />
-                <Route path="/reports" component={lazy(() => import("@/pages/reports"))} />
+                <Route path="/reports" component={Reports} />
                 <Route path="/messages" component={Messages} />
                 <Route path="/media" component={MediaLibrary} />
                 <Route path="/ministry-teams" component={MinistryTeams} />
