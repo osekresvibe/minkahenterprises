@@ -90,10 +90,10 @@ export default function MemberHome() {
                   <span>Check In</span>
                 </Link>
               </Button>
-              <Button asChild className="h-auto py-6 flex-col gap-2" variant="outline" data-testid="button-create-post">
+              <Button asChild className="h-auto py-6 flex-col gap-2" variant="outline" data-testid="button-view-feed">
                 <Link href="/feed">
                   <MessageCircle className="h-6 w-6" />
-                  <span>Create Post</span>
+                  <span>Community Feed</span>
                 </Link>
               </Button>
               <Button asChild className="h-auto py-6 flex-col gap-2" variant="outline" data-testid="button-view-events">
