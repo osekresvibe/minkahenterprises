@@ -135,7 +135,7 @@ export default function MemberFeed() {
     setShowShareModal(true);
   };
 
-  const handleShareToSocial = (platform: "facebook" | "instagram") => {
+  const handleShareToSocial = (platform: "facebook" | "instagram", shareType: "feed" | "story") => {
     if (!selectedPostForShare) return;
 
     const postUrl = `${window.location.origin}/feed-post/${selectedPostForShare.id}`;
@@ -144,20 +144,29 @@ export default function MemberFeed() {
     const text = encodeURIComponent(`${title}\n${content}`);
     const url = encodeURIComponent(postUrl);
 
-    const shareUrls: Record<string, string> = {
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
-      instagram: `https://www.instagram.com/`,
-    };
-
-    if (platform === "instagram") {
-      navigator.clipboard.writeText(postUrl);
+    if (platform === "facebook") {
+      const facebookShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+      window.open(facebookShareUrl, "_blank", "width=600,height=400");
       toast({
-        title: "Link copied for Instagram!",
-        description: "Open Instagram and share the link in your story or post",
+        title: "Facebook Share Dialog",
+        description: "Choose where to share - your feed or a story!",
       });
+    } else if (platform === "instagram") {
+      // Copy the link to clipboard for Instagram
+      navigator.clipboard.writeText(postUrl);
+      
+      if (shareType === "story") {
+        toast({
+          title: "Link copied for Instagram Story!",
+          description: "Open Instagram, tap the Stories camera, and add the link to your story",
+        });
+      } else {
+        toast({
+          title: "Link copied for Instagram Feed!",
+          description: "Open Instagram and create a new post, then paste the link",
+        });
+      }
     }
-
-    window.open(shareUrls[platform], "_blank", "width=600,height=400");
   };
 
   return (
@@ -428,27 +437,51 @@ export default function MemberFeed() {
               </Card>
 
               {/* Share Options */}
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-foreground">Share to:</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    onClick={() => handleShareToSocial("facebook")}
-                    className="flex items-center justify-center gap-2"
-                    data-testid="button-share-facebook"
-                  >
-                    <Facebook className="h-4 w-4" />
-                    Facebook
-                  </Button>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Facebook</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => handleShareToSocial("facebook", "feed")}
+                      className="flex items-center justify-center gap-2 text-xs"
+                      data-testid="button-share-facebook-feed"
+                    >
+                      <Facebook className="h-4 w-4" />
+                      Feed
+                    </Button>
+                    <Button
+                      onClick={() => handleShareToSocial("facebook", "story")}
+                      variant="outline"
+                      className="flex items-center justify-center gap-2 text-xs"
+                      data-testid="button-share-facebook-story"
+                    >
+                      <Facebook className="h-4 w-4" />
+                      Story
+                    </Button>
+                  </div>
+                </div>
 
-                  <Button
-                    onClick={() => handleShareToSocial("instagram")}
-                    variant="outline"
-                    className="flex items-center justify-center gap-2"
-                    data-testid="button-share-instagram"
-                  >
-                    <Instagram className="h-4 w-4" />
-                    Instagram
-                  </Button>
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Instagram</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => handleShareToSocial("instagram", "feed")}
+                      className="flex items-center justify-center gap-2 text-xs"
+                      data-testid="button-share-instagram-feed"
+                    >
+                      <Instagram className="h-4 w-4" />
+                      Feed
+                    </Button>
+                    <Button
+                      onClick={() => handleShareToSocial("instagram", "story")}
+                      variant="outline"
+                      className="flex items-center justify-center gap-2 text-xs"
+                      data-testid="button-share-instagram-story"
+                    >
+                      <Instagram className="h-4 w-4" />
+                      Story
+                    </Button>
+                  </div>
                 </div>
               </div>
 
