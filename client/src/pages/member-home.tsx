@@ -57,7 +57,13 @@ export default function MemberHome() {
               </div>
               <h1 className="font-serif font-semibold text-lg">Church Community</h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Button asChild size="sm" variant="ghost" data-testid="button-feed-nav">
+                <Link href="/feed">
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  Feed
+                </Link>
+              </Button>
               <Button asChild size="sm" variant="ghost" data-testid="button-messages">
                 <Link href="/messages">
                   <MessageSquare className="h-4 w-4" />
