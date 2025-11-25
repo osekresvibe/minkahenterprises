@@ -83,11 +83,17 @@ export default function MemberHome() {
           {/* Main Feed */}
           <div className="lg:col-span-2 space-y-6">
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Button asChild className="h-auto py-6 flex-col gap-2" data-testid="button-check-in-action">
                 <Link href="/check-in">
                   <UserCheck className="h-6 w-6" />
                   <span>Check In</span>
+                </Link>
+              </Button>
+              <Button asChild className="h-auto py-6 flex-col gap-2" variant="outline" data-testid="button-create-post">
+                <Link href="/feed">
+                  <MessageCircle className="h-6 w-6" />
+                  <span>Create Post</span>
                 </Link>
               </Button>
               <Button asChild className="h-auto py-6 flex-col gap-2" variant="outline" data-testid="button-view-events">

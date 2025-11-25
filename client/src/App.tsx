@@ -33,6 +33,7 @@ import NotFound from "@/pages/not-found";
 import ChurchSettings from "@/pages/church-settings";
 import MemberDetail from "@/pages/member-detail";
 import Reports from "@/pages/reports";
+import MemberFeed from "@/pages/member-feed";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -146,6 +147,7 @@ function AppContent() {
   return (
     <Switch>
       <Route path="/" component={MemberHome} />
+      <Route path="/feed" component={MemberFeed} />
       <Route path="/members/:userId" component={UserProfile} />
       <Route path="/events" component={Events} />
       <Route path="/messages" component={Messages} />

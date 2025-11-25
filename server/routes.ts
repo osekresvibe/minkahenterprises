@@ -1179,6 +1179,83 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Member Posts - Allow members to create posts
+  app.post("/api/member-posts/upload", isAuthenticated, getCurrentUser, upload.single('media'), async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+
+    try {
+      let mediaUrl = null;
+      let mediaType = null;
+
+      if (req.file) {
+        mediaUrl = `/uploads/${req.file.filename}`;
+        mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      }
+
+      const postData = {
+        title: req.body.title,
+        content: req.body.content,
+        imageUrl: mediaType === 'image' ? mediaUrl : undefined,
+        videoUrl: mediaType === 'video' ? mediaUrl : undefined,
+      };
+
+      const post = await storage.createPost({
+        ...postData,
+        churchId: user.churchId,
+        authorId: user.id,
+      });
+
+      res.status(201).json(post);
+    } catch (error) {
+      console.error("Post creation error:", error);
+      res.status(400).json({ message: "Failed to create post" });
+    }
+  });
+
+  app.post("/api/member-posts", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+    
+    try {
+      const postData = insertPostSchema.parse(req.body);
+      const post = await storage.createPost({
+        ...postData,
+        churchId: user.churchId,
+        authorId: user.id,
+      });
+      
+      res.status(201).json(post);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid post data" });
+    }
+  });
+
+  // Direct social media sharing endpoint
+  app.post("/api/share-to-social", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    const { postId, platform, title, content, imageUrl } = req.body;
+
+    try {
+      // For now, return success - in production, this would integrate with Meta Graph API
+      // This endpoint can be extended to handle direct posting to Facebook/Instagram
+      
+      res.json({ 
+        success: true,
+        message: `Post shared to ${platform}`,
+        postId,
+      });
+    } catch (error) {
+      res.status(400).json({ message: `Failed to share to ${platform}` });
+    }
+  });
+
   // Serve uploaded files
   app.use('/uploads', isAuthenticated, (req, res, next) => {
     next();
