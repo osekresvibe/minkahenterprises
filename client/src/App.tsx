@@ -123,6 +123,7 @@ function AppContent() {
                 <Route path="/members/:id" component={MemberDetail} />
                 <Route path="/invite-members" component={InviteMembers} />
                 <Route path="/posts/new" component={CreatePost} />
+                <Route path="/feed" component={MemberFeed} />
                 <Route path="/events" component={Events} />
                 <Route path="/events/new" component={Events} />
                 <Route path="/reports" component={Reports} />
