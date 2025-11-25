@@ -64,6 +64,7 @@ export interface IStorage {
 
   // Post operations
   getPosts(churchId: string): Promise<Post[]>;
+  getPost(id: string): Promise<Post | undefined>;
   getTruthPostsByUser(userId: string): Promise<Post[]>;
   getTruthPost(postId: string): Promise<Post | undefined>;
   discoverTruthPosts(location?: string): Promise<Post[]>;
@@ -268,6 +269,13 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(posts)
       .where(eq(posts.churchId, churchId))
       .orderBy(desc(posts.isPinned), desc(posts.createdAt));
+  }
+
+  async getPost(id: string): Promise<Post | undefined> {
+    const result = await db.select().from(posts)
+      .where(eq(posts.id, id))
+      .limit(1);
+    return result[0];
   }
 
   async getTruthPostsByUser(userId: string): Promise<Post[]> {

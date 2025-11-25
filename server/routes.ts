@@ -797,6 +797,27 @@ export function registerRoutes(app: Express) {
     res.json(posts);
   });
 
+  app.get("/api/posts/:id", isAuthenticated, getCurrentUser, async (req, res) => {
+    const { id } = req.params;
+    const user = res.locals.user as User;
+    
+    try {
+      const post = await storage.getPost(id);
+      
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+      
+      if (post.churchId !== user.churchId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      res.json(post);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to get post" });
+    }
+  });
+
   app.post("/api/posts/upload", isAuthenticated, getCurrentUser, requireChurchAdmin, upload.single('media'), async (req, res) => {
     const user = res.locals.user as User;
     
