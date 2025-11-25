@@ -9,6 +9,7 @@ import {
   checkIns,
   messageChannels,
   messages,
+  directMessages,
   invitations,
   ministryTeams,
   teamMembers,
@@ -29,6 +30,8 @@ import {
   type InsertMessageChannel,
   type Message,
   type InsertMessage,
+  type DirectMessage,
+  type InsertDirectMessage,
   type Invitation,
   type InsertInvitation,
   type MinistryTeam,
@@ -92,6 +95,11 @@ export interface IStorage {
   // Message operations
   getMessages(channelId: string): Promise<Message[]>;
   createMessage(message: InsertMessage & { channelId: string; userId: string }): Promise<Message>;
+
+  // Direct Message operations
+  getDirectMessages(churchId: string, userId: string, otherUserId?: string): Promise<DirectMessage[]>;
+  createDirectMessage(message: InsertDirectMessage & { senderId: string; recipientId: string; churchId: string }): Promise<DirectMessage>;
+  getConversationPartners(churchId: string, userId: string): Promise<User[]>;
 
   // Invitation operations
   createInvitation(invitation: InsertInvitation & { churchId: string; invitedBy: string; token: string; expiresAt: Date }): Promise<Invitation>;
@@ -441,6 +449,59 @@ export class DatabaseStorage implements IStorage {
     };
     const [newMessage] = await db.insert(messages).values(record).returning();
     return newMessage;
+  }
+
+  // Direct Message operations
+  async getDirectMessages(churchId: string, userId: string, otherUserId?: string): Promise<DirectMessage[]> {
+    let query = db
+      .select()
+      .from(directMessages)
+      .where(eq(directMessages.churchId, churchId));
+
+    if (otherUserId) {
+      query = query.where(
+        sql`((${directMessages.senderId} = ${userId} AND ${directMessages.recipientId} = ${otherUserId}) OR (${directMessages.senderId} = ${otherUserId} AND ${directMessages.recipientId} = ${userId}))`
+      );
+    } else {
+      query = query.where(
+        sql`(${directMessages.senderId} = ${userId} OR ${directMessages.recipientId} = ${userId})`
+      );
+    }
+
+    const rows = await query.orderBy(directMessages.createdAt);
+    return rows;
+  }
+
+  async createDirectMessage(message: InsertDirectMessage & { senderId: string; recipientId: string; churchId: string }): Promise<DirectMessage> {
+    const record: typeof directMessages.$inferInsert = {
+      content: message.content,
+      senderId: message.senderId,
+      recipientId: message.recipientId,
+      churchId: message.churchId,
+    };
+    const [newMessage] = await db.insert(directMessages).values(record).returning();
+    return newMessage;
+  }
+
+  async getConversationPartners(churchId: string, userId: string): Promise<User[]> {
+    // Get all unique users this user has messaged (either sent or received)
+    const sentTo = await db.selectDistinct({ id: directMessages.recipientId })
+      .from(directMessages)
+      .where(and(eq(directMessages.churchId, churchId), eq(directMessages.senderId, userId)));
+
+    const receivedFrom = await db.selectDistinct({ id: directMessages.senderId })
+      .from(directMessages)
+      .where(and(eq(directMessages.churchId, churchId), eq(directMessages.recipientId, userId)));
+
+    const partnerIds = new Set([
+      ...sentTo.map(r => r.id),
+      ...receivedFrom.map(r => r.id),
+    ]);
+
+    if (partnerIds.size === 0) return [];
+
+    const partners = await db.select().from(users).where(inArray(users.id, Array.from(partnerIds)));
+    return partners;
   }
 
   // Invitation operations

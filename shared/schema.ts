@@ -202,6 +202,20 @@ export const messages = pgTable("messages", {
   index("messages_created_idx").on(table.createdAt),
 ]);
 
+// Direct Messages table - for 1-on-1 messaging between members and admins
+export const directMessages = pgTable("direct_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  senderId: varchar("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  recipientId: varchar("recipient_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  churchId: varchar("church_id").notNull().references(() => churches.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("direct_messages_church_idx").on(table.churchId),
+  index("direct_messages_sender_idx").on(table.senderId),
+  index("direct_messages_recipient_idx").on(table.recipientId),
+]);
+
 // Ministry Teams table - for organizing church members into ministry groups
 export const ministryTeams = pgTable("ministry_teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -381,6 +395,23 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   }),
 }));
 
+export const directMessagesRelations = relations(directMessages, ({ one }) => ({
+  sender: one(users, {
+    fields: [directMessages.senderId],
+    references: [users.id],
+    relationName: "sentMessages",
+  }),
+  recipient: one(users, {
+    fields: [directMessages.recipientId],
+    references: [users.id],
+    relationName: "receivedMessages",
+  }),
+  church: one(churches, {
+    fields: [directMessages.churchId],
+    references: [churches.id],
+  }),
+}));
+
 export const ministryTeamsRelations = relations(ministryTeams, ({ one, many }) => ({
   church: one(churches, {
     fields: [ministryTeams.churchId],
@@ -467,6 +498,10 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   content: true,
 });
 
+export const insertDirectMessageSchema = createInsertSchema(directMessages).pick({
+  content: true,
+});
+
 export const insertInvitationSchema = createInsertSchema(invitations).pick({
   email: true,
   role: true,
@@ -526,6 +561,8 @@ export type InsertMessageChannel = z.infer<typeof insertMessageChannelSchema>;
 export type MessageChannel = typeof messageChannels.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+export type InsertDirectMessage = z.infer<typeof insertDirectMessageSchema>;
+export type DirectMessage = typeof directMessages.$inferSelect;
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 export type Invitation = typeof invitations.$inferSelect;
 export type InsertMinistryTeam = z.infer<typeof insertMinistryTeamSchema>;

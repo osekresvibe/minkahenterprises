@@ -6,22 +6,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageSquare, Send, Hash, Plus } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import type { Message, MessageChannel, User } from "@shared/schema";
+import { MessageSquare, Send } from "lucide-react";
+import type { DirectMessage, User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 
 export default function Messages() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [messageContent, setMessageContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false);
-  const [newChannelName, setNewChannelName] = useState("");
-  const [newChannelDescription, setNewChannelDescription] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -36,31 +31,38 @@ export default function Messages() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: channels = [] } = useQuery<MessageChannel[]>({
-    queryKey: ["/api/channels"],
-    enabled: !!user,
-  });
-
-  const { data: messages = [] } = useQuery<Message[]>({
-    queryKey: ["/api/channels", selectedChannelId, "messages"],
-    enabled: !!selectedChannelId,
-    refetchInterval: 3000, // Poll every 3 seconds for new messages
-  });
-
-  const { data: users = [] } = useQuery<User[]>({
+  // Get all users in the organization for selection
+  const { data: organizationUsers = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     enabled: !!user,
   });
 
+  // Get conversation partners
+  const { data: partners = [] } = useQuery<User[]>({
+    queryKey: ["/api/direct-messages/partners"],
+    enabled: !!user,
+  });
+
+  // Get messages with selected user
+  const { data: messages = [] } = useQuery<DirectMessage[]>({
+    queryKey: ["/api/direct-messages", selectedUserId],
+    enabled: !!selectedUserId && !!user,
+    refetchInterval: 3000,
+  });
+
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
-      await apiRequest("POST", `/api/channels/${selectedChannelId}/messages`, {
+      await apiRequest("POST", `/api/direct-messages`, {
+        recipientId: selectedUserId,
         content,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/channels", selectedChannelId, "messages"],
+        queryKey: ["/api/direct-messages", selectedUserId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/direct-messages/partners"],
       });
       setMessageContent("");
     },
@@ -84,62 +86,19 @@ export default function Messages() {
     },
   });
 
-  const createChannelMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string }) => {
-      return await apiRequest("/api/channels", {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/channels"] });
-      setIsCreateChannelOpen(false);
-      setNewChannelName("");
-      setNewChannelDescription("");
-      toast({ title: "Channel created successfully" });
-    },
-    onError: () => {
-      toast({ title: "Failed to create channel", variant: "destructive" });
-    },
-  });
-
-  const handleCreateChannel = () => {
-    if (!newChannelName.trim()) {
-      toast({ title: "Channel name is required", variant: "destructive" });
-      return;
-    }
-    createChannelMutation.mutate({
-      name: newChannelName,
-      description: newChannelDescription || undefined,
-    });
-  };
-
-
-  // Auto-scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-select first channel
-  useEffect(() => {
-    if (channels.length > 0 && !selectedChannelId) {
-      setSelectedChannelId(channels[0].id);
-    }
-  }, [channels, selectedChannelId]);
-
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (messageContent.trim() && selectedChannelId) {
+    if (messageContent.trim() && selectedUserId) {
       sendMutation.mutate(messageContent);
     }
   };
 
-  const selectedChannel = channels.find((c) => c.id === selectedChannelId);
-
-  const getUserById = (userId: string) => {
-    return users.find((u) => u.id === userId);
-  };
+  const selectedPartner = organizationUsers.find((u) => u.id === selectedUserId);
+  const otherUsers = organizationUsers.filter((u) => u.id !== user?.id);
 
   if (authLoading) {
     return (
@@ -151,104 +110,102 @@ export default function Messages() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      {/* Channels List */}
-      <div className="w-64 border-r border-border bg-sidebar flex flex-col">
-        <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
+      {/* Users List */}
+      <div className="w-64 border-r border-border bg-sidebar flex flex-col overflow-hidden">
+        <div className="p-4 border-b border-sidebar-border">
           <h2 className="font-semibold text-sidebar-foreground flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
-            Channels
+            Messages
           </h2>
-          <Dialog open={isCreateChannelOpen} onOpenChange={setIsCreateChannelOpen}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Plus className="h-5 w-5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Channel</DialogTitle>
-                <DialogDescription>
-                  Create a new channel for your church community to communicate.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="channel-name">Channel Name</Label>
-                  <Input
-                    id="channel-name"
-                    placeholder="e.g., announcements"
-                    value={newChannelName}
-                    onChange={(e) => setNewChannelName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="channel-description">Description (Optional)</Label>
-                  <Input
-                    id="channel-description"
-                    placeholder="Brief description of the channel..."
-                    value={newChannelDescription}
-                    onChange={(e) => setNewChannelDescription(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreateChannel} disabled={createChannelMutation.isPending}>
-                  {createChannelMutation.isPending ? "Creating..." : "Create Channel"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
+        
+        {/* Conversation Partners */}
         <div className="flex-1 overflow-y-auto">
-          {channels.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">
-              No channels yet
+          <div className="p-2">
+            <p className="text-xs font-semibold text-muted-foreground px-2 py-2">Recent Conversations</p>
+            {partners.length === 0 ? (
+              <p className="text-xs text-muted-foreground px-2 py-2">No conversations yet</p>
+            ) : (
+              partners.map((partner) => (
+                <button
+                  key={partner.id}
+                  onClick={() => setSelectedUserId(partner.id)}
+                  className={`w-full px-3 py-2 text-left hover-elevate rounded-md transition-all mb-1 flex items-center gap-2 ${
+                    selectedUserId === partner.id
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground"
+                  }`}
+                  data-testid={`button-user-${partner.id}`}
+                >
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarImage src={partner.profileImageUrl || undefined} className="object-cover" />
+                    <AvatarFallback>
+                      {partner.firstName?.[0]}
+                      {partner.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {partner.firstName} {partner.lastName}
+                    </p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* All Organization Users */}
+          <div className="p-2 border-t border-sidebar-border">
+            <p className="text-xs font-semibold text-muted-foreground px-2 py-2">Organization Members</p>
+            <div className="max-h-48 overflow-y-auto">
+              {otherUsers.map((member) => (
+                <button
+                  key={member.id}
+                  onClick={() => setSelectedUserId(member.id)}
+                  className={`w-full px-3 py-2 text-left hover-elevate rounded-md transition-all mb-1 flex items-center gap-2 ${
+                    selectedUserId === member.id
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground"
+                  }`}
+                  data-testid={`button-member-${member.id}`}
+                >
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarImage src={member.profileImageUrl || undefined} className="object-cover" />
+                    <AvatarFallback>
+                      {member.firstName?.[0]}
+                      {member.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {member.firstName} {member.lastName}
+                    </p>
+                  </div>
+                </button>
+              ))}
             </div>
-          ) : (
-            channels.map((channel) => (
-              <button
-                key={channel.id}
-                onClick={() => setSelectedChannelId(channel.id)}
-                className={`w-full px-4 py-3 text-left hover-elevate transition-shadow duration-200 ${
-                  selectedChannelId === channel.id
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground"
-                }`}
-                data-testid={`button-channel-${channel.id}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Hash className="h-4 w-4" />
-                  <span className="font-medium truncate">{channel.name}</span>
-                </div>
-                {channel.description && (
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {channel.description}
-                  </p>
-                )}
-              </button>
-            ))
-          )}
+          </div>
         </div>
       </div>
 
       {/* Messages Area */}
       <div className="flex-1 flex flex-col">
-        {selectedChannel ? (
+        {selectedPartner && user ? (
           <>
-            {/* Channel Header */}
-            <div className="p-4 border-b border-border bg-card">
-              <div className="flex items-center gap-2">
-                <Hash className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <h2 className="font-semibold text-card-foreground">
-                    {selectedChannel.name}
-                  </h2>
-                  {selectedChannel.description && (
-                    <p className="text-sm text-muted-foreground">
-                      {selectedChannel.description}
-                    </p>
-                  )}
-                </div>
+            {/* User Header */}
+            <div className="p-4 border-b border-border bg-card flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={selectedPartner.profileImageUrl || undefined} className="object-cover" />
+                <AvatarFallback>
+                  {selectedPartner.firstName?.[0]}
+                  {selectedPartner.lastName?.[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="font-semibold text-card-foreground">
+                  {selectedPartner.firstName} {selectedPartner.lastName}
+                </h2>
+                <p className="text-sm text-muted-foreground">{selectedPartner.email}</p>
               </div>
             </div>
 
@@ -258,14 +215,11 @@ export default function Messages() {
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No messages yet</p>
-                  <p className="text-sm text-muted-foreground">
-                    Start the conversation!
-                  </p>
+                  <p className="text-sm text-muted-foreground">Start the conversation!</p>
                 </div>
               ) : (
                 messages.map((message) => {
-                  const messageUser = getUserById(message.userId);
-                  const isOwnMessage = message.userId === user?.id;
+                  const isOwnMessage = message.senderId === user.id;
 
                   return (
                     <div
@@ -275,26 +229,15 @@ export default function Messages() {
                     >
                       <Avatar className="h-8 w-8 flex-shrink-0">
                         <AvatarImage
-                          src={messageUser?.profileImageUrl || undefined}
+                          src={isOwnMessage ? user.profileImageUrl || undefined : selectedPartner.profileImageUrl || undefined}
                           className="object-cover"
                         />
                         <AvatarFallback>
-                          {messageUser?.firstName?.[0]}
-                          {messageUser?.lastName?.[0]}
+                          {isOwnMessage ? user.firstName?.[0] : selectedPartner.firstName?.[0]}
+                          {isOwnMessage ? user.lastName?.[0] : selectedPartner.lastName?.[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div className={`flex-1 ${isOwnMessage ? "items-end" : "items-start"} flex flex-col`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium">
-                            {messageUser?.firstName} {messageUser?.lastName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(message.createdAt).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </div>
                         <div
                           className={`rounded-2xl px-4 py-2 max-w-md ${
                             isOwnMessage
@@ -304,6 +247,12 @@ export default function Messages() {
                         >
                           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                         </div>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          {new Date(message.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
                     </div>
                   );
@@ -318,7 +267,7 @@ export default function Messages() {
                 <Input
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
-                  placeholder={`Message #${selectedChannel.name}`}
+                  placeholder={`Message ${selectedPartner.firstName}...`}
                   className="flex-1"
                   disabled={sendMutation.isPending}
                   data-testid="input-message"
@@ -335,7 +284,7 @@ export default function Messages() {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground">Select a channel to start messaging</p>
+            <p className="text-muted-foreground">Select a person to start messaging</p>
           </div>
         )}
       </div>

@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
 import type { User } from "@shared/schema";
-import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema } from "@shared/schema";
+import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertDirectMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
 import multer from "multer";
@@ -1131,6 +1131,69 @@ export function registerRoutes(app: Express) {
       // Broadcast message to all connected clients in the channel
       const { broadcastMessage } = await import("./realtime");
       broadcastMessage(channelId, message);
+      
+      res.status(201).json(message);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid message data" });
+    }
+  });
+
+  // Direct Messages
+  app.get("/api/direct-messages/partners", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.json([]);
+    }
+    
+    const partners = await storage.getConversationPartners(user.churchId, user.id);
+    res.json(partners);
+  });
+
+  app.get("/api/direct-messages", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    const { recipientId } = req.query;
+    
+    if (!user.churchId) {
+      return res.json([]);
+    }
+    
+    if (recipientId && typeof recipientId === 'string') {
+      const messages = await storage.getDirectMessages(user.churchId, user.id, recipientId);
+      return res.json(messages);
+    }
+    
+    const messages = await storage.getDirectMessages(user.churchId, user.id);
+    res.json(messages);
+  });
+
+  app.post("/api/direct-messages", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    if (!user.churchId) {
+      return res.status(400).json({ message: "No church assigned" });
+    }
+    
+    try {
+      const { recipientId, content } = req.body;
+      
+      if (!recipientId || !content) {
+        return res.status(400).json({ message: "Recipient ID and content are required" });
+      }
+      
+      // Verify recipient exists and is in same church
+      const recipient = await storage.getUser(recipientId);
+      if (!recipient || recipient.churchId !== user.churchId) {
+        return res.status(400).json({ message: "Invalid recipient" });
+      }
+      
+      const messageData = insertDirectMessageSchema.parse({ content });
+      const message = await storage.createDirectMessage({
+        ...messageData,
+        senderId: user.id,
+        recipientId,
+        churchId: user.churchId,
+      });
       
       res.status(201).json(message);
     } catch (error) {
