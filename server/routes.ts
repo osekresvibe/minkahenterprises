@@ -818,6 +818,76 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Social media preview endpoint - no auth required for scrapers
+  app.get("/feed-post/:id", async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+      const post = await storage.getPost(id);
+      
+      if (!post) {
+        return res.status(404).send("Post not found");
+      }
+
+      // Escape HTML special characters
+      const escapeHtml = (str: string) => 
+        str.replace(/&/g, "&amp;")
+           .replace(/</g, "&lt;")
+           .replace(/>/g, "&gt;")
+           .replace(/"/g, "&quot;")
+           .replace(/'/g, "&#039;");
+
+      // Construct absolute URL from request headers
+      const protocol = req.get("x-forwarded-proto") || req.protocol || "http";
+      const host = req.get("host") || "localhost:5000";
+      const baseUrl = `${protocol}://${host}`;
+      
+      const imageUrl = post.imageUrl ? `${baseUrl}${post.imageUrl}` : "";
+      const pageUrl = `${baseUrl}/feed-post/${id}`;
+      const description = escapeHtml(post.content.substring(0, 160));
+      const title = escapeHtml(post.title);
+
+      // Return HTML with meta tags for social media scrapers
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title} | Community Feed</title>
+  <meta name="description" content="${description}" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${pageUrl}" />
+  ${imageUrl ? `<meta property="og:image" content="${imageUrl}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />` : ""}
+  <meta name="twitter:card" content="${imageUrl ? "summary_large_image" : "summary"}" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  ${imageUrl ? `<meta name="twitter:image" content="${imageUrl}" />` : ""}
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; line-height: 1.6;">
+  <div style="display: none;">
+    ${imageUrl ? `<img src="${imageUrl}" alt="${title}" />` : ""}
+  </div>
+  <article>
+    <h1>${title}</h1>
+    ${imageUrl ? `<img src="${imageUrl}" alt="${title}" style="max-width: 100%; height: auto; margin: 20px 0; border-radius: 8px;" />` : ""}
+    <p style="white-space: pre-wrap;">${escapeHtml(post.content)}</p>
+    <p style="color: #666; font-size: 14px;">Posted on ${new Date(post.createdAt).toLocaleDateString()}</p>
+  </article>
+</body>
+</html>`;
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.send(html);
+    } catch (error) {
+      res.status(500).send("Error loading post");
+    }
+  });
+
   app.post("/api/posts/upload", isAuthenticated, getCurrentUser, requireChurchAdmin, upload.single('media'), async (req, res) => {
     const user = res.locals.user as User;
     
@@ -1277,8 +1347,4 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  // Serve uploaded files
-  app.use('/uploads', isAuthenticated, (req, res, next) => {
-    next();
-  });
 }
