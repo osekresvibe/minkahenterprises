@@ -794,7 +794,24 @@ export function registerRoutes(app: Express) {
     }
     
     const posts = await storage.getPosts(user.churchId);
-    res.json(posts);
+    
+    // Enrich posts with author info
+    const postsWithAuthors = await Promise.all(
+      posts.map(async (post) => {
+        const author = await storage.getUser(post.authorId);
+        return {
+          ...post,
+          author: author ? {
+            id: author.id,
+            firstName: author.firstName,
+            lastName: author.lastName,
+            profileImageUrl: author.profileImageUrl,
+          } : null,
+        };
+      })
+    );
+    
+    res.json(postsWithAuthors);
   });
 
   app.get("/api/posts/:id", isAuthenticated, getCurrentUser, async (req, res) => {

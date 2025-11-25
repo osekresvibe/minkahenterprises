@@ -19,6 +19,15 @@ interface PostFormData {
   content: string;
 }
 
+interface PostWithAuthor extends Post {
+  author?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    profileImageUrl?: string;
+  } | null;
+}
+
 export default function MemberFeed() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -39,7 +48,7 @@ export default function MemberFeed() {
   });
 
   // Fetch all posts
-  const { data: posts = [], isLoading: postsLoading } = useQuery<Post[]>({
+  const { data: posts = [], isLoading: postsLoading } = useQuery<PostWithAuthor[]>({
     queryKey: ["/api/posts"],
     enabled: !!(user && user.churchId),
   });
@@ -180,7 +189,7 @@ export default function MemberFeed() {
           <div className="flex justify-center py-12">
             <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
           </div>
-        ) : (posts as Post[]).length === 0 ? (
+        ) : (posts as PostWithAuthor[]).length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -192,7 +201,7 @@ export default function MemberFeed() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {(posts as Post[]).map((post: Post) => (
+            {(posts as PostWithAuthor[]).map((post: PostWithAuthor) => (
               <Card key={post.id} className="hover-elevate transition-shadow duration-200" data-testid={`post-card-${post.id}`}>
                 {/* Media */}
                 {(post.imageUrl || post.videoUrl) && (
@@ -220,15 +229,22 @@ export default function MemberFeed() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 flex-1">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={user?.profileImageUrl || undefined} />
+                        <AvatarImage src={post.author?.profileImageUrl || undefined} />
                         <AvatarFallback>
-                          {user?.firstName?.[0]}{user?.lastName?.[0]}
+                          {post.author?.firstName?.[0]}{post.author?.lastName?.[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-foreground" data-testid={`post-title-${post.id}`}>
-                          {post.title}
-                        </h3>
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground" data-testid={`post-author-${post.id}`}>
+                              {post.author?.firstName} {post.author?.lastName}
+                            </p>
+                            <h3 className="font-semibold text-foreground" data-testid={`post-title-${post.id}`}>
+                              {post.title}
+                            </h3>
+                          </div>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {new Date(post.createdAt).toLocaleDateString('en-US', {
                             year: 'numeric',
