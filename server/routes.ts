@@ -2,14 +2,15 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./firebaseAuth";
 import type { User } from "@shared/schema";
-import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertDirectMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema } from "@shared/schema";
+import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertDirectMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema, churches, users } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
-import { db, eq, and, asc, desc } from "./db"; // Assuming db is imported from './db'
-import type { Church } from "@shared/schema"; // Assuming Church type is imported
+import { db } from "./db";
+import { eq, and, asc, desc } from "drizzle-orm";
+import type { Church } from "@shared/schema";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -168,7 +169,7 @@ export function registerRoutes(app: Express) {
 
       // Set session manually - use the exact same format as Replit Auth
       if (req.session) {
-        req.session.user = {
+        (req.session as any).user = {
           claims: {
             sub: adminId,
             email: adminEmail,
@@ -297,8 +298,9 @@ export function registerRoutes(app: Express) {
       const church = await storage.createChurch({
         ...churchData,
         adminUserId: user.id,
-        status: "pending",
       });
+      // Update status to pending after creation
+      await storage.updateChurchStatus(String(church.id), "pending");
 
       res.status(201).json(church);
     } catch (error) {
@@ -1249,7 +1251,7 @@ export function registerRoutes(app: Express) {
         fileUrl,
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
-        mediaType: isVideo ? 'video' : 'image',
+        mediaType: (isVideo ? 'video' : 'image') as 'video' | 'image',
         category: req.body.category || 'general',
         description: req.body.description,
         tags: req.body.tags,
@@ -1465,10 +1467,11 @@ export function registerRoutes(app: Express) {
   });
 
   // Request to join an organization
-  app.post("/api/organizations/:churchId/request-join", requireAuth, async (req, res) => {
+  app.post("/api/organizations/:churchId/request-join", isAuthenticated, getCurrentUser, async (req, res) => {
     try {
       const churchId = parseInt(req.params.churchId);
-      const userId = req.user!.id; // Assuming req.user is populated by isAuthenticated
+      const user = res.locals.user as User;
+      const userId = user.id;
 
       // Check if organization exists and is approved
       const church = await db.query.churches.findFirst({

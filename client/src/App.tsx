@@ -41,32 +41,9 @@ import NotFound from "@/pages/not-found";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const { setLocation, location } = useLocation();
+  const [location, setLocation] = useLocation();
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  // Not authenticated - show public routes
-  if (!isAuthenticated) {
-    return (
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route path="/onboarding" component={Onboarding} />
-        <Route path="/register-church" component={RegisterChurch} />
-        <Route path="/browse-organizations" component={BrowseOrganizations} />
-        <Route path="/accept-invite/:token?" component={AcceptInvite} />
-        <Route component={NotFound} />
-      </Switch>
-    );
-  }
-
-  // Redirect based on user role
+  // Redirect based on user role - must be before any early returns
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
 
@@ -109,6 +86,29 @@ function AppContent() {
       return;
     }
   }, [user, isAuthenticated, isLoading, location, setLocation]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Not authenticated - show public routes
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route path="/onboarding" component={Onboarding} />
+        <Route path="/register-church" component={RegisterChurch} />
+        <Route path="/browse-organizations" component={BrowseOrganizations} />
+        <Route path="/accept-invite/:token?" component={AcceptInvite} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
 
   // Determine role-based layout
   const isSuperAdmin = user?.role === "super_admin";
