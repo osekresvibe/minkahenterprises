@@ -21,7 +21,7 @@ export default function Onboarding() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setLocation("/register-church")}>
             <CardHeader className="text-center">
               <div className="mx-auto h-16 w-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
@@ -56,14 +56,48 @@ export default function Onboarding() {
             </CardContent>
           </Card>
 
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setLocation("/browse-organizations")}>
+            <CardHeader className="text-center">
+              <div className="mx-auto h-16 w-16 rounded-2xl bg-accent flex items-center justify-center mb-4">
+                <UserPlus className="h-8 w-8 text-accent-foreground" />
+              </div>
+              <CardTitle className="text-2xl">Browse Organizations</CardTitle>
+              <CardDescription className="text-base">
+                Explore and request to join existing organizations
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <p className="text-sm text-muted-foreground">
+                You'll be able to:
+              </p>
+              <ul className="text-sm text-muted-foreground space-y-2 text-left">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>Discover organizations near you</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>View organization details</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>Request to join instantly</span>
+                </li>
+              </ul>
+              <Button className="w-full" size="lg" variant="secondary">
+                Browse Now
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
               <div className="mx-auto h-16 w-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
                 <Mail className="h-8 w-8 text-secondary-foreground" />
               </div>
-              <CardTitle className="text-2xl">Join an Organization</CardTitle>
+              <CardTitle className="text-2xl">Wait for Invite</CardTitle>
               <CardDescription className="text-base">
-                Wait for an invitation from your church or organization
+                Join using an invitation link from an admin
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center space-y-4">

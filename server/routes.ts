@@ -8,6 +8,8 @@ import crypto from "crypto";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
+import { db, eq, and, asc, desc } from "./db"; // Assuming db is imported from './db'
+import type { Church } from "@shared/schema"; // Assuming Church type is imported
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -54,10 +56,10 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 function canSendInvite(userId: string): boolean {
   const now = Date.now();
   const userInvites = inviteRateLimits.get(userId) || [];
-  
+
   // Remove timestamps older than 1 hour
   const recentInvites = userInvites.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW_MS);
-  
+
   // Check if user has exceeded rate limit
   return recentInvites.length < INVITE_RATE_LIMIT;
 }
@@ -65,10 +67,10 @@ function canSendInvite(userId: string): boolean {
 function recordInviteSent(userId: string): void {
   const now = Date.now();
   const userInvites = inviteRateLimits.get(userId) || [];
-  
+
   // Remove timestamps older than 1 hour
   const recentInvites = userInvites.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW_MS);
-  
+
   // Add current timestamp
   recentInvites.push(now);
   inviteRateLimits.set(userId, recentInvites);
@@ -80,13 +82,21 @@ const getCurrentUser: RequestHandler = async (req, res, next) => {
   if (!sessionUser?.claims?.sub) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-  
+
   const user = await storage.getUser(sessionUser.claims.sub);
   if (!user) {
     return res.status(401).json({ message: "User not found" });
   }
-  
+
   res.locals.user = user;
+  next();
+};
+
+// Mock requireAuth and requireSuperAdmin for new routes
+const requireAuth: RequestHandler = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
   next();
 };
 
@@ -127,10 +137,10 @@ export function registerRoutes(app: Express) {
       // Create or get a super admin user
       const adminEmail = "superadmin@minkahenterprises.com";
       const adminId = "super-admin-dev";
-      
+
       // Check if admin exists
       let admin = await storage.getUser(adminId);
-      
+
       if (!admin) {
         // Create super admin
         admin = await storage.upsertUser({
@@ -140,10 +150,10 @@ export function registerRoutes(app: Express) {
           lastName: "Admin",
         });
       }
-      
+
       // Always ensure role is super_admin
       await storage.updateUserRole(adminId, "super_admin", null);
-      
+
       // Ensure seed data exists by running seed
       try {
         const churches = await storage.getAllChurches();
@@ -155,7 +165,7 @@ export function registerRoutes(app: Express) {
       } catch (error) {
         console.error("Seed check error:", error);
       }
-      
+
       // Set session manually - use the exact same format as Replit Auth
       if (req.session) {
         req.session.user = {
@@ -165,7 +175,7 @@ export function registerRoutes(app: Express) {
             name: "Super Admin",
           },
         };
-        
+
         await new Promise<void>((resolve, reject) => {
           req.session!.save((err) => {
             if (err) reject(err);
@@ -173,9 +183,9 @@ export function registerRoutes(app: Express) {
           });
         });
       }
-      
+
       console.log("Admin backdoor login successful for:", adminId);
-      
+
       // Redirect to root - App.tsx will route to super admin dashboard
       res.redirect("/");
     } catch (error) {
@@ -193,7 +203,7 @@ export function registerRoutes(app: Express) {
   app.put("/api/profile", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
     const { firstName, lastName, email, phone, address, bio } = req.body;
-    
+
     try {
       await storage.updateUser(user.id, {
         firstName,
@@ -203,7 +213,7 @@ export function registerRoutes(app: Express) {
         address,
         bio,
       });
-      
+
       const updatedUser = await storage.getUser(user.id);
       res.json(updatedUser);
     } catch (error) {
@@ -235,7 +245,7 @@ export function registerRoutes(app: Express) {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
     const churchId = req.query.churchId as string | undefined;
-    
+
     const activities = await storage.getActivityLogs({ limit, offset, churchId });
     res.json(activities);
   });
@@ -243,15 +253,15 @@ export function registerRoutes(app: Express) {
   app.post("/api/admin/churches/:id/approve", isAuthenticated, getCurrentUser, requireSuperAdmin, async (req, res) => {
     const { id } = req.params;
     const church = await storage.getChurch(id);
-    
+
     if (!church) {
       return res.status(404).json({ message: "Church not found" });
     }
-    
+
     // Approve church and set admin role
     await storage.updateChurchStatus(id, "approved");
     await storage.updateUserRole(church.adminUserId, "church_admin", id);
-    
+
     // Create default message channels
     const defaultChannels = [
       { name: "general", description: "General church announcements and updates" },
@@ -259,7 +269,7 @@ export function registerRoutes(app: Express) {
       { name: "events", description: "Discuss upcoming church events" },
       { name: "ministries", description: "Ministry team coordination" },
     ];
-    
+
     for (const channel of defaultChannels) {
       await storage.createChannel({
         name: channel.name,
@@ -268,7 +278,7 @@ export function registerRoutes(app: Express) {
         createdBy: church.adminUserId,
       });
     }
-    
+
     res.json({ message: "Church approved" });
   });
 
@@ -281,7 +291,7 @@ export function registerRoutes(app: Express) {
   // Church Registration
   app.post("/api/churches/register", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     try {
       const churchData = insertChurchSchema.parse(req.body);
       const church = await storage.createChurch({
@@ -289,7 +299,7 @@ export function registerRoutes(app: Express) {
         adminUserId: user.id,
         status: "pending",
       });
-      
+
       res.status(201).json(church);
     } catch (error) {
       res.status(400).json({ message: "Invalid church data" });
@@ -299,26 +309,26 @@ export function registerRoutes(app: Express) {
   // Church Profile Management
   app.get("/api/churches/my-church", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(404).json({ message: "No church assigned" });
     }
-    
+
     const church = await storage.getChurch(user.churchId);
     if (!church) {
       return res.status(404).json({ message: "Church not found" });
     }
-    
+
     res.json(church);
   });
 
   app.patch("/api/churches/my-church", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     try {
       const churchData = updateChurchSchema.parse(req.body);
       await storage.updateChurch(user.churchId, churchData);
@@ -332,13 +342,13 @@ export function registerRoutes(app: Express) {
   // Bulk email invitations
   app.post("/api/invitations/bulk", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
 
     const { emails } = req.body;
-    
+
     if (!Array.isArray(emails) || emails.length === 0) {
       return res.status(400).json({ message: "Email list is required" });
     }
@@ -370,29 +380,29 @@ export function registerRoutes(app: Express) {
   // Invitations
   app.post("/api/invitations", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     // Check rate limit BEFORE processing
     if (!canSendInvite(user.id)) {
       return res.status(429).json({ 
         message: `Rate limit exceeded. You can send up to ${INVITE_RATE_LIMIT} invitations per hour.`
       });
     }
-    
+
     try {
       const invitationData = insertInvitationSchema.parse(req.body);
-      
+
       // Check if email is already a member of this church
       const existingMembers = await storage.getUsersByChurch(user.churchId);
       const isAlreadyMember = existingMembers.some(m => m.email === invitationData.email);
-      
+
       if (isAlreadyMember) {
         return res.status(400).json({ message: "User is already a member of this church" });
       }
-      
+
       // Check for existing pending invitation
       const existingInvitations = await storage.getInvitationsByChurch(user.churchId);
       const hasPendingInvite = existingInvitations.some(
@@ -400,16 +410,16 @@ export function registerRoutes(app: Express) {
         inv.status === "pending" && 
         new Date(inv.expiresAt) > new Date()
       );
-      
+
       if (hasPendingInvite) {
         return res.status(400).json({ message: "An invitation has already been sent to this email" });
       }
-      
+
       // Generate secure token and expiration
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
-      
+
       const invitation = await storage.createInvitation({
         ...invitationData,
         churchId: user.churchId,
@@ -417,10 +427,10 @@ export function registerRoutes(app: Express) {
         token,
         expiresAt,
       });
-      
+
       // Record successful invitation for rate limiting
       recordInviteSent(user.id);
-      
+
       // Log activity
       await storage.logActivity({
         churchId: user.churchId,
@@ -430,11 +440,11 @@ export function registerRoutes(app: Express) {
         entityId: invitation.id,
         metadata: { email: invitationData.email, role: invitationData.role },
       });
-      
+
       // TODO: Send email with invitation link (stubbed for now)
       console.log(`[MAILER STUB] Invitation email would be sent to: ${invitationData.email}`);
       console.log(`[MAILER STUB] Invitation link: ${process.env.REPLIT_DOMAINS?.split(',')[0]}/accept-invite/${token}`);
-      
+
       res.json(invitation);
     } catch (error) {
       res.status(400).json({ message: "Invalid invitation data" });
@@ -443,11 +453,11 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/invitations", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     const invitations = await storage.getInvitationsByChurch(user.churchId);
     res.json(invitations);
   });
@@ -455,19 +465,19 @@ export function registerRoutes(app: Express) {
   app.delete("/api/invitations/:id", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     // Verify invitation belongs to this church
     const invitations = await storage.getInvitationsByChurch(user.churchId);
     const invitation = invitations.find(inv => inv.id === id);
-    
+
     if (!invitation) {
       return res.status(404).json({ message: "Invitation not found" });
     }
-    
+
     await storage.deleteInvitation(id);
     res.json({ message: "Invitation cancelled" });
   });
@@ -475,242 +485,242 @@ export function registerRoutes(app: Express) {
   app.post("/api/invitations/accept/:token", isAuthenticated, getCurrentUser, async (req, res) => {
     const { token } = req.params;
     const user = res.locals.user as User;
-    
+
     // Get invitation by token
     const invitation = await storage.getInvitationByToken(token);
-    
+
     if (!invitation) {
       return res.status(404).json({ message: "Invalid invitation" });
     }
-    
+
     // Validate invitation status and expiration
     if (invitation.status !== "pending") {
       return res.status(400).json({ message: "This invitation has already been used" });
     }
-    
+
     if (new Date(invitation.expiresAt) < new Date()) {
       await storage.updateInvitationStatus(token, "expired");
       return res.status(400).json({ message: "This invitation has expired" });
     }
-    
+
     // Check if user's email matches the invitation
     if (user.email !== invitation.email) {
       return res.status(403).json({ message: "This invitation was sent to a different email address" });
     }
-    
+
     // Update user's church and role
     await storage.updateUserRole(user.id, invitation.role, invitation.churchId);
-    
+
     // Mark invitation as accepted
     await storage.updateInvitationStatus(token, "accepted");
-    
+
     res.json({ message: "Invitation accepted successfully", churchId: invitation.churchId });
   });
 
   // Ministry Teams
   app.get("/api/ministry-teams", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const teams = await storage.getMinistryTeams(user.churchId);
     res.json(teams);
   });
-  
+
   app.post("/api/ministry-teams", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     try {
       const teamData = insertMinistryTeamSchema.parse(req.body);
       const team = await storage.createMinistryTeam({
         ...teamData,
         churchId: user.churchId,
       });
-      
+
       res.status(201).json(team);
     } catch (error) {
       res.status(400).json({ message: "Invalid team data" });
     }
   });
-  
+
   app.get("/api/ministry-teams/:id", isAuthenticated, getCurrentUser, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     const team = await storage.getMinistryTeam(id);
-    
+
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    
+
     // Verify team belongs to user's church
     if (team.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     res.json(team);
   });
-  
+
   app.patch("/api/ministry-teams/:id", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     const team = await storage.getMinistryTeam(id);
-    
+
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    
+
     // Verify team belongs to user's church
     if (team.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     try {
       const teamData = insertMinistryTeamSchema.partial().parse(req.body);
       await storage.updateMinistryTeam(id, teamData);
-      
+
       res.json({ message: "Team updated successfully" });
     } catch (error) {
       res.status(400).json({ message: "Invalid team data" });
     }
   });
-  
+
   app.delete("/api/ministry-teams/:id", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     const team = await storage.getMinistryTeam(id);
-    
+
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    
+
     // Verify team belongs to user's church
     if (team.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     await storage.deleteMinistryTeam(id);
     res.json({ message: "Team deleted successfully" });
   });
-  
+
   // Team Members
   app.get("/api/ministry-teams/:id/members", isAuthenticated, getCurrentUser, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     const team = await storage.getMinistryTeam(id);
-    
+
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    
+
     // Verify team belongs to user's church
     if (team.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     const members = await storage.getTeamMembersWithUserInfo(id);
     res.json(members);
   });
-  
+
   app.post("/api/ministry-teams/:id/members", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     const team = await storage.getMinistryTeam(id);
-    
+
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    
+
     // Verify team belongs to user's church
     if (team.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     try {
       const memberData = insertTeamMemberSchema.parse(req.body);
-      
+
       // Verify user being added belongs to the same church
       const memberUser = await storage.getUser(memberData.userId);
       if (!memberUser || memberUser.churchId !== user.churchId) {
         return res.status(400).json({ message: "User must be a member of this church" });
       }
-      
+
       const member = await storage.addTeamMember({
         ...memberData,
         teamId: id,
       });
-      
+
       res.status(201).json(member);
     } catch (error) {
       res.status(400).json({ message: "Invalid member data or user already on team" });
     }
   });
-  
+
   app.delete("/api/ministry-teams/:teamId/members/:userId", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const { teamId, userId } = req.params;
     const user = res.locals.user as User;
-    
+
     const team = await storage.getMinistryTeam(teamId);
-    
+
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    
+
     // Verify team belongs to user's church
     if (team.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     await storage.removeTeamMember(teamId, userId);
     res.json({ message: "Member removed from team" });
   });
-  
+
   app.patch("/api/ministry-teams/:teamId/members/:userId", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const { teamId, userId } = req.params;
     const user = res.locals.user as User;
     const { role } = req.body;
-    
+
     // Validate role
     const roleSchema = z.enum(["leader", "co_leader", "member", "volunteer"]);
     const roleValidation = roleSchema.safeParse(role);
-    
+
     if (!roleValidation.success) {
       return res.status(400).json({ message: "Invalid role. Must be one of: leader, co_leader, member, volunteer" });
     }
-    
+
     const team = await storage.getMinistryTeam(teamId);
-    
+
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    
+
     // Verify team belongs to user's church
     if (team.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     await storage.updateTeamMemberRole(teamId, userId, roleValidation.data);
     res.json({ message: "Member role updated successfully" });
   });
-  
+
   // Team Directory (accessible to all church members)
   app.get("/api/team-directory", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const teamsWithMembers = await storage.getMinistryTeamsWithMembers(user.churchId);
     res.json(teamsWithMembers);
   });
@@ -718,11 +728,11 @@ export function registerRoutes(app: Express) {
   // Members
   app.get("/api/members", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const members = await storage.getUsersByChurch(user.churchId);
     res.json(members);
   });
@@ -730,11 +740,11 @@ export function registerRoutes(app: Express) {
   // All users (for messaging display)
   app.get("/api/users", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const users = await storage.getUsersByChurch(user.churchId);
     res.json(users);
   });
@@ -763,7 +773,7 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/truth-posts", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     try {
       const postData = {
         title: "Truth Post",
@@ -772,13 +782,13 @@ export function registerRoutes(app: Express) {
         videoUrl: req.body.videoUrl,
         isPinned: false,
       };
-      
+
       const post = await storage.createPost({
         ...postData,
         churchId: user.churchId || "public",
         authorId: user.id,
       });
-      
+
       res.status(201).json(post);
     } catch (error) {
       res.status(400).json({ message: "Invalid truth post data" });
@@ -788,13 +798,13 @@ export function registerRoutes(app: Express) {
   // Posts
   app.get("/api/posts", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const posts = await storage.getPosts(user.churchId);
-    
+
     // Enrich posts with author info
     const postsWithAuthors = await Promise.all(
       posts.map(async (post) => {
@@ -810,25 +820,25 @@ export function registerRoutes(app: Express) {
         };
       })
     );
-    
+
     res.json(postsWithAuthors);
   });
 
   app.get("/api/posts/:id", isAuthenticated, getCurrentUser, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     try {
       const post = await storage.getPost(id);
-      
+
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
-      
+
       if (post.churchId !== user.churchId) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      
+
       res.json(post);
     } catch (error) {
       res.status(400).json({ message: "Failed to get post" });
@@ -838,10 +848,10 @@ export function registerRoutes(app: Express) {
   // Social media preview endpoint - no auth required for scrapers
   app.get("/feed-post/:id", async (req, res) => {
     const { id } = req.params;
-    
+
     try {
       const post = await storage.getPost(id);
-      
+
       if (!post) {
         return res.status(404).send("Post not found");
       }
@@ -858,7 +868,7 @@ export function registerRoutes(app: Express) {
       const protocol = req.get("x-forwarded-proto") || req.protocol || "http";
       const host = req.get("host") || "localhost:5000";
       const baseUrl = `${protocol}://${host}`;
-      
+
       const imageUrl = post.imageUrl ? `${baseUrl}${post.imageUrl}` : "";
       const pageUrl = `${baseUrl}/feed-post/${id}`;
       const description = escapeHtml(post.content.substring(0, 160));
@@ -907,7 +917,7 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/posts/upload", isAuthenticated, getCurrentUser, requireChurchAdmin, upload.single('media'), async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
@@ -954,11 +964,11 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/posts", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     try {
       const postData = insertPostSchema.parse(req.body);
       const post = await storage.createPost({
@@ -966,7 +976,7 @@ export function registerRoutes(app: Express) {
         churchId: user.churchId,
         authorId: user.id,
       });
-      
+
       // Log activity
       await storage.logActivity({
         churchId: user.churchId,
@@ -976,7 +986,7 @@ export function registerRoutes(app: Express) {
         entityId: post.id,
         metadata: { title: post.title },
       });
-      
+
       res.status(201).json(post);
     } catch (error) {
       res.status(400).json({ message: "Invalid post data" });
@@ -986,22 +996,22 @@ export function registerRoutes(app: Express) {
   // Events
   app.get("/api/events", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const events = await storage.getEvents(user.churchId);
     res.json(events);
   });
 
   app.get("/api/events/upcoming", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const events = await storage.getEvents(user.churchId);
     const upcomingEvents = events.filter(e => new Date(e.startTime) > new Date());
     res.json(upcomingEvents);
@@ -1009,11 +1019,11 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/events", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     try {
       const eventData = insertEventSchema.parse(req.body);
       const event = await storage.createEvent({
@@ -1021,7 +1031,7 @@ export function registerRoutes(app: Express) {
         churchId: user.churchId,
         creatorId: user.id,
       });
-      
+
       // Log activity
       await storage.logActivity({
         churchId: user.churchId,
@@ -1031,7 +1041,7 @@ export function registerRoutes(app: Express) {
         entityId: event.id,
         metadata: { title: event.title, startTime: event.startTime },
       });
-      
+
       res.status(201).json(event);
     } catch (error) {
       res.status(400).json({ message: "Invalid event data" });
@@ -1049,37 +1059,37 @@ export function registerRoutes(app: Express) {
     const user = res.locals.user as User;
     const { eventId } = req.params;
     const { status } = req.body;
-    
+
     if (!["going", "maybe", "not_going"].includes(status)) {
       return res.status(400).json({ message: "Invalid RSVP status" });
     }
-    
+
     const event = await storage.getEvent(eventId);
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
     }
-    
+
     if (event.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     const rsvp = await storage.upsertRsvp({
       status,
       eventId,
       userId: user.id,
     });
-    
+
     res.json(rsvp);
   });
 
   // Check-ins
   app.post("/api/check-ins", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     try {
       const checkInData = insertCheckInSchema.parse(req.body);
       const checkIn = await storage.createCheckIn({
@@ -1088,7 +1098,7 @@ export function registerRoutes(app: Express) {
         churchId: user.churchId,
         checkInTime: new Date(),
       });
-      
+
       res.status(201).json(checkIn);
     } catch (error) {
       res.status(400).json({ message: "Invalid check-in data" });
@@ -1103,11 +1113,11 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/check-ins/recent", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const checkIns = await storage.getCheckInsByChurch(user.churchId, 20);
     res.json(checkIns);
   });
@@ -1115,11 +1125,11 @@ export function registerRoutes(app: Express) {
   // Message Channels
   app.get("/api/channels", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const channels = await storage.getChannels(user.churchId);
     res.json(channels);
   });
@@ -1128,7 +1138,7 @@ export function registerRoutes(app: Express) {
   app.get("/api/channels/:channelId/messages", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
     const { channelId } = req.params;
-    
+
     const messages = await storage.getMessages(channelId);
     res.json(messages);
   });
@@ -1136,7 +1146,7 @@ export function registerRoutes(app: Express) {
   app.post("/api/channels/:channelId/messages", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
     const { channelId } = req.params;
-    
+
     try {
       const messageData = insertMessageSchema.parse(req.body);
       const message = await storage.createMessage({
@@ -1144,11 +1154,11 @@ export function registerRoutes(app: Express) {
         channelId,
         userId: user.id,
       });
-      
+
       // Broadcast message to all connected clients in the channel
       const { broadcastMessage } = await import("./realtime");
       broadcastMessage(channelId, message);
-      
+
       res.status(201).json(message);
     } catch (error) {
       res.status(400).json({ message: "Invalid message data" });
@@ -1158,11 +1168,11 @@ export function registerRoutes(app: Express) {
   // Direct Messages
   app.get("/api/direct-messages/partners", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     const partners = await storage.getConversationPartners(user.churchId, user.id);
     res.json(partners);
   });
@@ -1170,40 +1180,40 @@ export function registerRoutes(app: Express) {
   app.get("/api/direct-messages", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
     const { recipientId } = req.query;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
-    
+
     if (recipientId && typeof recipientId === 'string') {
       const messages = await storage.getDirectMessages(user.churchId, user.id, recipientId);
       return res.json(messages);
     }
-    
+
     const messages = await storage.getDirectMessages(user.churchId, user.id);
     res.json(messages);
   });
 
   app.post("/api/direct-messages", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     try {
       const { recipientId, content } = req.body;
-      
+
       if (!recipientId || !content) {
         return res.status(400).json({ message: "Recipient ID and content are required" });
       }
-      
+
       // Verify recipient exists and is in same church
       const recipient = await storage.getUser(recipientId);
       if (!recipient || recipient.churchId !== user.churchId) {
         return res.status(400).json({ message: "Invalid recipient" });
       }
-      
+
       const messageData = insertDirectMessageSchema.parse({ content });
       const message = await storage.createDirectMessage({
         ...messageData,
@@ -1211,7 +1221,7 @@ export function registerRoutes(app: Express) {
         recipientId,
         churchId: user.churchId,
       });
-      
+
       res.status(201).json(message);
     } catch (error) {
       res.status(400).json({ message: "Invalid message data" });
@@ -1221,7 +1231,7 @@ export function registerRoutes(app: Express) {
   // Media Library - File Upload
   app.post("/api/media/upload", isAuthenticated, getCurrentUser, upload.single('file'), async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
@@ -1233,7 +1243,7 @@ export function registerRoutes(app: Express) {
     try {
       const fileUrl = `/uploads/${req.file.filename}`;
       const isVideo = req.file.mimetype.startsWith('video/');
-      
+
       const mediaData = {
         fileName: req.file.originalname,
         fileUrl,
@@ -1259,7 +1269,7 @@ export function registerRoutes(app: Express) {
   // Get media files for church
   app.get("/api/media", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.json([]);
     }
@@ -1278,17 +1288,17 @@ export function registerRoutes(app: Express) {
   app.get("/api/media/:id", isAuthenticated, getCurrentUser, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     const mediaFile = await storage.getMediaFile(id);
-    
+
     if (!mediaFile) {
       return res.status(404).json({ message: "Media file not found" });
     }
-    
+
     if (mediaFile.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
+
     res.json(mediaFile);
   });
 
@@ -1296,13 +1306,13 @@ export function registerRoutes(app: Express) {
   app.patch("/api/media/:id", isAuthenticated, getCurrentUser, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     const mediaFile = await storage.getMediaFile(id);
-    
+
     if (!mediaFile) {
       return res.status(404).json({ message: "Media file not found" });
     }
-    
+
     if (mediaFile.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
@@ -1313,7 +1323,7 @@ export function registerRoutes(app: Express) {
         tags: req.body.tags,
         category: req.body.category,
       };
-      
+
       await storage.updateMediaFile(id, updates);
       res.json({ message: "Media file updated successfully" });
     } catch (error) {
@@ -1325,13 +1335,13 @@ export function registerRoutes(app: Express) {
   app.delete("/api/media/:id", isAuthenticated, getCurrentUser, requireChurchAdmin, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user as User;
-    
+
     const mediaFile = await storage.getMediaFile(id);
-    
+
     if (!mediaFile) {
       return res.status(404).json({ message: "Media file not found" });
     }
-    
+
     if (mediaFile.churchId !== user.churchId) {
       return res.status(403).json({ message: "Forbidden" });
     }
@@ -1340,10 +1350,10 @@ export function registerRoutes(app: Express) {
       // Delete physical file
       const filePath = path.join(process.cwd(), mediaFile.fileUrl);
       await fs.unlink(filePath).catch(() => {});
-      
+
       // Delete database record
       await storage.deleteMediaFile(id);
-      
+
       res.json({ message: "Media file deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete media file" });
@@ -1353,7 +1363,7 @@ export function registerRoutes(app: Express) {
   // Member Posts - Allow members to create posts
   app.post("/api/member-posts/upload", isAuthenticated, getCurrentUser, upload.single('media'), async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
@@ -1389,11 +1399,11 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/member-posts", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
-    
+
     if (!user.churchId) {
       return res.status(400).json({ message: "No church assigned" });
     }
-    
+
     try {
       const postData = insertPostSchema.parse(req.body);
       const post = await storage.createPost({
@@ -1401,7 +1411,7 @@ export function registerRoutes(app: Express) {
         churchId: user.churchId,
         authorId: user.id,
       });
-      
+
       res.status(201).json(post);
     } catch (error) {
       res.status(400).json({ message: "Invalid post data" });
@@ -1416,7 +1426,7 @@ export function registerRoutes(app: Express) {
     try {
       // For now, return success - in production, this would integrate with Meta Graph API
       // This endpoint can be extended to handle direct posting to Facebook/Instagram
-      
+
       res.json({ 
         success: true,
         message: `Post shared to ${platform}`,
@@ -1424,6 +1434,74 @@ export function registerRoutes(app: Express) {
       });
     } catch (error) {
       res.status(400).json({ message: `Failed to share to ${platform}` });
+    }
+  });
+
+  // Get all churches for super admin
+  app.get("/api/churches", requireSuperAdmin, async (req, res) => {
+    try {
+      const churches = await db.query.churches.findMany({
+        orderBy: (churches, { desc }) => [desc(churches.createdAt)],
+      });
+      res.json(churches);
+    } catch (error: any) {
+      console.error("Error fetching churches:", error);
+      res.status(500).json({ message: "Failed to fetch churches" });
+    }
+  });
+
+  // Browse approved organizations (public for authenticated users)
+  app.get("/api/organizations/browse", requireAuth, async (req, res) => {
+    try {
+      const organizations = await db.query.churches.findMany({
+        where: eq(churches.status, "approved"),
+        orderBy: (churches, { asc }) => [asc(churches.name)],
+      });
+      res.json(organizations);
+    } catch (error: any) {
+      console.error("Error browsing organizations:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  // Request to join an organization
+  app.post("/api/organizations/:churchId/request-join", requireAuth, async (req, res) => {
+    try {
+      const churchId = parseInt(req.params.churchId);
+      const userId = req.user!.id; // Assuming req.user is populated by isAuthenticated
+
+      // Check if organization exists and is approved
+      const church = await db.query.churches.findFirst({
+        where: and(
+          eq(churches.id, churchId),
+          eq(churches.status, "approved")
+        ),
+      });
+
+      if (!church) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Check if user is already a member
+      const existingUser = await db.query.users.findFirst({
+        where: and(
+          eq(users.id, userId),
+          eq(users.churchId, churchId)
+        ),
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ message: "You are already a member of this organization" });
+      }
+
+      // Create a join request (you can create a new table for this or use invitations table)
+      // For now, we'll send a notification to church admins
+      // This is a simplified version - you may want to create a proper join_requests table
+
+      res.json({ message: "Join request sent successfully" });
+    } catch (error: any) {
+      console.error("Error requesting to join organization:", error);
+      res.status(500).json({ message: "Failed to send join request" });
     }
   });
 

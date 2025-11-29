@@ -16,6 +16,7 @@ import Landing from "@/pages/landing";
 import Onboarding from "@/pages/onboarding";
 import RegisterChurch from "@/pages/register-church";
 import AcceptInvite from "@/pages/accept-invite";
+import BrowseOrganizations from "@/pages/browse-organizations";
 import SuperAdminDashboard from "@/pages/super-admin-dashboard";
 import ChurchAdminDashboard from "@/pages/church-admin-dashboard";
 import MemberHome from "@/pages/member-home";
@@ -58,6 +59,7 @@ function AppContent() {
         <Route path="/" component={Landing} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/register-church" component={RegisterChurch} />
+        <Route path="/browse-organizations" component={BrowseOrganizations} />
         <Route path="/accept-invite/:token?" component={AcceptInvite} />
         <Route component={NotFound} />
       </Switch>
