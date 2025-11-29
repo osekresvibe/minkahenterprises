@@ -15,6 +15,10 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
+localPort = 38785
+externalPort = 3002
+
+[[ports]]
 localPort = 41167
 externalPort = 3001
 
@@ -48,3 +52,10 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_websocket:1.0.0", "javascript_database:1.0.0", "javascript_log_in_with_replit:1.0.0", "javascript_stripe:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VITE_FIREBASE_PROJECT_ID = "minkah-enterprises-e51f3"
+VITE_FIREBASE_APP_ID = "1:707643630152:web:e941b04c9bebbd1d802e7d"
+VITE_FIREBASE_API_KEY = "AIzaSyBVfBMufsykrVn4IxM7gBXssrNlQ5C5u9g"

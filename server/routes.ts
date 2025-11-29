@@ -1,6 +1,6 @@
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
-import { isAuthenticated } from "./replitAuth";
+import { isAuthenticated } from "./firebaseAuth";
 import type { User } from "@shared/schema";
 import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertDirectMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema } from "@shared/schema";
 import { z } from "zod";

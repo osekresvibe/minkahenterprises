@@ -1,8 +1,50 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Building2, Users, Calendar, MessageSquare, UserCheck, Heart } from "lucide-react";
+import { signInWithGoogle } from "@/lib/firebase";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Landing() {
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const user = await signInWithGoogle();
+      if (user) {
+        const idToken = await user.getIdToken();
+        const response = await fetch("/api/auth/firebase", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${idToken}`,
+          },
+          credentials: "include",
+        });
+        
+        if (response.ok) {
+          window.location.href = "/";
+        } else {
+          toast({
+            title: "Login failed",
+            description: "Could not authenticate with the server",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast({
+        title: "Login failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const features = [
     {
       icon: Building2,
@@ -65,10 +107,11 @@ export default function Landing() {
               <Button
                 size="lg"
                 className="min-w-48 text-base"
-                onClick={() => window.location.href = "/api/login"}
+                onClick={handleLogin}
+                disabled={isLoading}
                 data-testid="button-login"
               >
-                Get Started
+                {isLoading ? "Signing in..." : "Sign in with Google"}
               </Button>
               <Button
                 size="lg"
@@ -128,10 +171,11 @@ export default function Landing() {
               size="lg"
               variant="secondary"
               className="min-w-48 text-base"
-              onClick={() => window.location.href = "/api/login"}
+              onClick={handleLogin}
+              disabled={isLoading}
               data-testid="button-get-started-cta"
             >
-              Get Started Now
+              {isLoading ? "Signing in..." : "Get Started Now"}
             </Button>
           </CardContent>
         </Card>
