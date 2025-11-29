@@ -62,7 +62,9 @@ export function AppSidebar() {
 
   const memberItems = [
     { title: "Home", url: "/", icon: Home },
+    { title: "Feed", url: "/feed", icon: MessageCircle },
     { title: "Events", url: "/events", icon: Calendar },
+    { title: "Channels", url: "/channels", icon: MessageSquare },
     { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Check In", url: "/check-in", icon: UserCheck },
     { title: "Ministry Teams", url: "/team-directory", icon: UsersRound },
