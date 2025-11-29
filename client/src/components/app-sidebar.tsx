@@ -51,7 +51,6 @@ export function AppSidebar() {
     { title: "Invite Members", url: "/invite-members", icon: UserCheck },
     { title: "Ministry Teams", url: "/ministry-teams", icon: UsersRound },
     { title: "Events", url: "/events", icon: Calendar },
-    { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Check-ins", url: "/check-ins", icon: UserCheck },
     { title: "Settings", url: "/settings", icon: Settings },
     {
