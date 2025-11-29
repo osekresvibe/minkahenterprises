@@ -3,6 +3,7 @@ import {
   Users,
   Calendar,
   MessageSquare,
+  MessageCircle,
   UserCheck,
   Building2,
   Settings,
