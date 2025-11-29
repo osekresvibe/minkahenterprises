@@ -37,6 +37,7 @@ import MediaLibrary from "@/pages/media-library";
 import Reports from "@/pages/reports";
 import UserProfile from "@/pages/user-profile";
 import SpeakYourTruth from "@/pages/speak-your-truth";
+import Channels from "@/pages/channels";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -203,6 +204,7 @@ function AppContent() {
       <Route path="/feed-post/:id" component={PostDetail} />
       <Route path="/members/:userId" component={UserProfile} />
       <Route path="/events" component={Events} />
+      <Route path="/channels" component={Channels} />
       <Route path="/messages" component={Messages} />
       <Route path="/media" component={MediaLibrary} />
       <Route path="/check-in" component={CheckInPage} />
