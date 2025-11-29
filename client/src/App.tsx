@@ -1,5 +1,5 @@
 // Referenced from javascript_log_in_with_replit blueprint
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,35 +9,38 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { useEffect } from "react";
 
 // Pages
 import Landing from "@/pages/landing";
+import Onboarding from "@/pages/onboarding";
+import RegisterChurch from "@/pages/register-church";
+import AcceptInvite from "@/pages/accept-invite";
 import SuperAdminDashboard from "@/pages/super-admin-dashboard";
 import ChurchAdminDashboard from "@/pages/church-admin-dashboard";
 import MemberHome from "@/pages/member-home";
-import Events from "@/pages/events";
-import Messages from "@/pages/messages";
-import CheckInPage from "@/pages/check-in";
-import RegisterChurch from "@/pages/register-church";
 import Members from "@/pages/members";
-import UserProfile from "@/pages/user-profile";
+import MemberDetail from "@/pages/member-detail";
+import Profile from "@/pages/profile";
+import ChurchSettings from "@/pages/church-settings";
 import InviteMembers from "@/pages/invite-members";
-import AcceptInvite from "@/pages/accept-invite";
 import MinistryTeams from "@/pages/ministry-teams";
 import TeamDirectory from "@/pages/team-directory";
-import Profile from "@/pages/profile";
-import MediaLibrary from "@/pages/media-library";
+import Events from "@/pages/events";
+import Messages from "@/pages/messages";
+import CheckInPage from "@/pages/check-in"; // Corrected import name to match usage below
 import CreatePost from "@/pages/create-post";
-import SpeakYourTruth from "@/pages/speak-your-truth";
-import NotFound from "@/pages/not-found";
-import ChurchSettings from "@/pages/church-settings";
-import MemberDetail from "@/pages/member-detail";
-import Reports from "@/pages/reports";
 import MemberFeed from "@/pages/member-feed";
 import PostDetail from "@/pages/post-detail";
+import MediaLibrary from "@/pages/media-library";
+import Reports from "@/pages/reports";
+import UserProfile from "@/pages/user-profile";
+import SpeakYourTruth from "@/pages/speak-your-truth";
+import NotFound from "@/pages/not-found";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const { setLocation, location } = useLocation();
 
   // Loading state
   if (isLoading) {
@@ -53,12 +56,57 @@ function AppContent() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/onboarding" component={Onboarding} />
         <Route path="/register-church" component={RegisterChurch} />
-        <Route path="/accept-invite/:token" component={AcceptInvite} />
+        <Route path="/accept-invite/:token?" component={AcceptInvite} />
         <Route component={NotFound} />
       </Switch>
     );
   }
+
+  // Redirect based on user role
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+
+    if (!user) return;
+
+    // Super admin goes to admin dashboard
+    if (user.role === "super_admin") {
+      if (location !== "/admin") {
+        setLocation("/admin");
+      }
+      return;
+    }
+
+    // Church admin goes to church admin dashboard
+    if (user.role === "church_admin") {
+      if (location !== "/dashboard") {
+        setLocation("/dashboard");
+      }
+      return;
+    }
+
+    // Regular members go to member home
+    if (user.role === "member" && user.churchId) {
+      if (location === "/" || location === "/admin" || location === "/dashboard") {
+        setLocation("/home");
+      }
+      return;
+    }
+
+    // New user without church or role - redirect to onboarding
+    if (!user.churchId && !user.role && location === "/") {
+      setLocation("/onboarding");
+      return;
+    }
+
+    // User without church but has role (pending church approval)
+    if (!user.churchId && location === "/") {
+      // Stay on landing or redirect to onboarding
+      setLocation("/onboarding");
+      return;
+    }
+  }, [user, isAuthenticated, isLoading, location, setLocation]);
 
   // Determine role-based layout
   const isSuperAdmin = user?.role === "super_admin";
@@ -71,7 +119,7 @@ function AppContent() {
     "--sidebar-width-icon": "3rem",
   } as React.CSSProperties;
 
-  // Redirect based on user role
+  // Super Admin Layout
   if (isSuperAdmin) {
     return (
       <>
