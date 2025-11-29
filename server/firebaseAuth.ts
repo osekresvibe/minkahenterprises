@@ -1,16 +1,35 @@
-import * as admin from "firebase-admin";
+import { initializeApp, getApps, cert, type App, applicationDefault } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import type { Express, RequestHandler } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-let firebaseApp: admin.app.App;
+let firebaseApp: App;
 
 function initializeFirebaseAdmin() {
-  if (!firebaseApp) {
-    firebaseApp = admin.initializeApp({
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-    });
+  if (getApps().length === 0) {
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (serviceAccountJson) {
+      try {
+        const serviceAccount = JSON.parse(serviceAccountJson);
+        firebaseApp = initializeApp({
+          credential: cert(serviceAccount),
+          projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+        });
+      } catch (error) {
+        console.error("Failed to parse Firebase service account:", error);
+        throw new Error("Invalid FIREBASE_SERVICE_ACCOUNT JSON");
+      }
+    } else {
+      console.warn("FIREBASE_SERVICE_ACCOUNT not set - using project ID only (token verification may fail)");
+      firebaseApp = initializeApp({
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      });
+    }
+  } else {
+    firebaseApp = getApps()[0];
   }
   return firebaseApp;
 }
@@ -64,7 +83,7 @@ export async function setupAuth(app: Express) {
       }
 
       const idToken = authHeader.split("Bearer ")[1];
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const decodedToken = await getAuth().verifyIdToken(idToken);
       
       const { uid, email, name, picture } = decodedToken;
       
