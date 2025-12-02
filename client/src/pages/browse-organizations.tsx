@@ -20,7 +20,7 @@ export default function BrowseOrganizations() {
     queryKey: ["browse-organizations"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/organizations/browse");
-      return response as Church[];
+      return await response.json();
     },
   });
 
