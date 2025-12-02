@@ -25,19 +25,24 @@ export default function BrowseOrganizations() {
   });
 
   const requestJoinMutation = useMutation({
-    mutationFn: async (churchId: number) => {
-      await apiRequest("POST", `/api/organizations/${churchId}/request-join`);
+    mutationFn: async (churchId: string) => {
+      const response = await apiRequest("POST", `/api/organizations/${churchId}/request-join`);
+      return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
-        title: "Request Sent",
-        description: "Your request to join has been sent to the organization admin.",
+        title: "Success!",
+        description: "You have successfully joined the organization.",
       });
+      // Redirect to home after a short delay
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1500);
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to send join request",
+        description: error.message || "Failed to join organization",
         variant: "destructive",
       });
     },
@@ -141,22 +146,22 @@ export default function BrowseOrganizations() {
                 </div>
 
                 <Button
-                  onClick={() => requestJoinMutation.mutate(org.id)}
-                  disabled={requestJoinMutation.isPending || user?.churchId === org.id}
+                  onClick={() => requestJoinMutation.mutate(String(org.id))}
+                  disabled={requestJoinMutation.isPending || user?.churchId === String(org.id)}
                   className="w-full"
                   data-testid={`button-request-join-${org.id}`}
                 >
-                  {user?.churchId === org.id ? (
+                  {user?.churchId === String(org.id) ? (
                     <>
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Already a Member
                     </>
                   ) : requestJoinMutation.isPending ? (
-                    "Sending Request..."
+                    "Joining..."
                   ) : (
                     <>
                       <Users className="h-4 w-4 mr-2" />
-                      Request to Join
+                      Join Organization
                     </>
                   )}
                 </Button>

@@ -1474,39 +1474,36 @@ export function registerRoutes(app: Express) {
   // Request to join an organization
   app.post("/api/organizations/:churchId/request-join", isAuthenticated, getCurrentUser, async (req, res) => {
     try {
-      const churchId = parseInt(req.params.churchId);
+      const churchId = req.params.churchId; // Keep as string (UUID)
       const user = res.locals.user as User;
       const userId = user.id;
 
       // Check if organization exists and is approved
-      const church = await db.query.churches.findFirst({
-        where: and(
-          eq(churches.id, churchId),
-          eq(churches.status, "approved")
-        ),
-      });
+      const church = await storage.getChurch(churchId);
 
-      if (!church) {
-        return res.status(404).json({ message: "Organization not found" });
+      if (!church || church.status !== "approved") {
+        return res.status(404).json({ message: "Organization not found or not approved" });
       }
 
       // Check if user is already a member
-      const existingUser = await db.query.users.findFirst({
-        where: and(
-          eq(users.id, userId),
-          eq(users.churchId, churchId)
-        ),
-      });
-
-      if (existingUser) {
+      if (user.churchId === churchId) {
         return res.status(400).json({ message: "You are already a member of this organization" });
       }
 
-      // Create a join request (you can create a new table for this or use invitations table)
-      // For now, we'll send a notification to church admins
-      // This is a simplified version - you may want to create a proper join_requests table
+      // Auto-join the user to the organization as a member
+      await storage.updateUserRole(userId, "member", churchId);
 
-      res.json({ message: "Join request sent successfully" });
+      // Log activity
+      await storage.logActivity({
+        churchId,
+        userId,
+        action: 'member_joined',
+        entityType: 'user',
+        entityId: userId,
+        metadata: { joinMethod: 'browse_request' },
+      });
+
+      res.json({ message: "Successfully joined organization", churchId });
     } catch (error: any) {
       console.error("Error requesting to join organization:", error);
       res.status(500).json({ message: "Failed to send join request" });
