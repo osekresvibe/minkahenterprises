@@ -13,6 +13,7 @@ import { useEffect } from "react";
 
 // Pages
 import Landing from "@/pages/landing";
+import Login from "@/pages/login";
 import Onboarding from "@/pages/onboarding";
 import RegisterChurch from "@/pages/register-church";
 import AcceptInvite from "@/pages/accept-invite";
@@ -102,6 +103,7 @@ function AppContent() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/login" component={Login} />
         <Route path="/onboarding">
           {isLoading ? (
             <div className="flex items-center justify-center h-screen">
