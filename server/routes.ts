@@ -77,16 +77,12 @@ function recordInviteSent(userId: string): void {
   inviteRateLimits.set(userId, recentInvites);
 }
 
-// Middleware to get current user from session
+// Middleware to get current user from session (works with Firebase auth)
 const getCurrentUser: RequestHandler = async (req, res, next) => {
-  const sessionUser = req.user as any;
-  if (!sessionUser?.claims?.sub) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const user = await storage.getUser(sessionUser.claims.sub);
+  // isAuthenticated middleware sets req.user to the full user object from database
+  const user = (req as any).user;
   if (!user) {
-    return res.status(401).json({ message: "User not found" });
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   res.locals.user = user;
@@ -1462,7 +1458,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Browse approved organizations (public for authenticated users)
-  app.get("/api/organizations/browse", requireAuth, async (req, res) => {
+  app.get("/api/organizations/browse", isAuthenticated, getCurrentUser, async (req, res) => {
     try {
       const organizations = await db.query.churches.findMany({
         where: eq(churches.status, "approved"),
