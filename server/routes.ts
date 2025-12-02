@@ -93,11 +93,20 @@ const getCurrentUser: RequestHandler = async (req, res, next) => {
   next();
 };
 
-// Mock requireAuth and requireSuperAdmin for new routes
-const requireAuth: RequestHandler = (req, res, next) => {
-  if (!req.user) {
+// Simple auth check - just verifies user is in session
+const requireAuth: RequestHandler = async (req, res, next) => {
+  const sessionUser = req.user as any;
+  if (!sessionUser?.claims?.sub) {
     return res.status(401).json({ message: "Unauthorized" });
   }
+  
+  // Get user from database and store in res.locals
+  const user = await storage.getUser(sessionUser.claims.sub);
+  if (!user) {
+    return res.status(401).json({ message: "User not found" });
+  }
+  
+  res.locals.user = user;
   next();
 };
 
