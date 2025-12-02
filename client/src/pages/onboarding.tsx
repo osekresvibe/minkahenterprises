@@ -1,12 +1,29 @@
-
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, UserPlus, Mail } from "lucide-react";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 export default function Onboarding() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+
+  // Redirect users who already have a church to their home page
+  useEffect(() => {
+    if (!authLoading && user && user.churchId) {
+      window.location.href = "/";
+    }
+  }, [user, authLoading]);
+
+  if (authLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    // This should ideally not happen if auth is set up correctly, but as a safeguard
+    return <div className="min-h-screen flex items-center justify-center">Redirecting to login...</div>;
+  }
+
   const [, setLocation] = useLocation();
 
   return (

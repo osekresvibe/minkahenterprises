@@ -28,7 +28,7 @@ export default function Login() {
         if (response.ok) {
           const userData = await response.json();
           // Check if user has a church/organization assigned
-          if (userData.churchId) {
+          if (userData && userData.churchId) {
             window.location.href = "/";
           } else {
             // New user without organization - go to onboarding
