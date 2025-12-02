@@ -1,57 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Building2, Users, Calendar, MessageSquare, UserCheck, Heart } from "lucide-react";
-import { signInWithGoogle } from "@/lib/firebase";
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export default function Landing() {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  const handleLogin = async () => {
-    setIsLoading(true);
-    try {
-      const user = await signInWithGoogle();
-      if (user) {
-        const idToken = await user.getIdToken();
-        const response = await fetch("/api/auth/firebase", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${idToken}`,
-          },
-          credentials: "include",
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          // Check if user has a church/organization assigned
-          if (userData && userData.churchId) {
-            window.location.href = "/";
-          } else {
-            // New user without organization - go to onboarding
-            window.location.href = "/onboarding";
-          }
-        } else {
-          toast({
-            title: "Login failed",
-            description: "Could not authenticate with the server",
-            variant: "destructive",
-          });
-        }
-      }
-    } catch (error: any) {
-      console.error("Login error:", error);
-      toast({
-        title: "Login failed",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
   const features = [
     {
       icon: Building2,
@@ -114,11 +68,10 @@ export default function Landing() {
               <Button
                 size="lg"
                 className="min-w-48 text-base"
-                onClick={handleLogin}
-                disabled={isLoading}
+                onClick={() => setLocation("/login")}
                 data-testid="button-login"
               >
-                {isLoading ? "Signing in..." : "Sign in with Google"}
+                Sign In
               </Button>
               <Button
                 size="lg"
@@ -182,11 +135,10 @@ export default function Landing() {
               size="lg"
               variant="secondary"
               className="min-w-48 text-base"
-              onClick={handleLogin}
-              disabled={isLoading}
+              onClick={() => setLocation("/login")}
               data-testid="button-get-started-cta"
             >
-              {isLoading ? "Signing in..." : "Sign in with Google"}
+              Get Started
             </Button>
           </CardContent>
         </Card>

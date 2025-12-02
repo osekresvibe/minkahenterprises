@@ -39,6 +39,7 @@ import Reports from "@/pages/reports";
 import UserProfile from "@/pages/user-profile";
 import SpeakYourTruth from "@/pages/speak-your-truth";
 import Channels from "@/pages/channels";
+import StandaloneDashboard from "@/pages/standalone-dashboard";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -48,45 +49,40 @@ function AppContent() {
   // Redirect based on user role - must be before any early returns
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
-
     if (!user) return;
+
+    // Only redirect from root path to prevent unwanted redirects
+    const publicPaths = ["/login", "/onboarding", "/register-church", "/browse-organizations", "/profile"];
+    if (publicPaths.includes(location) || location.startsWith("/accept-invite")) {
+      return;
+    }
 
     // Super admin goes to admin dashboard
     if (user.role === "super_admin") {
-      if (location !== "/admin") {
+      if (location === "/" || location === "/home") {
         setLocation("/admin");
       }
       return;
     }
 
     // Church admin goes to church admin dashboard
-    if (user.role === "church_admin") {
-      if (location !== "/dashboard") {
+    if (user.role === "church_admin" && user.churchId) {
+      if (location === "/" || location === "/home") {
         setLocation("/dashboard");
       }
       return;
     }
 
-    // Regular members go to member home
-    if (user.role === "member" && user.churchId) {
-      if (location === "/" || location === "/admin" || location === "/dashboard") {
-        setLocation("/home");
+    // Regular members with a church go to member home
+    if (user.churchId) {
+      if (location === "/admin" || location === "/dashboard") {
+        setLocation("/");
       }
       return;
     }
 
-    // New user without church or role - redirect to onboarding
-    if (!user.churchId && !user.role && location === "/") {
-      setLocation("/onboarding");
-      return;
-    }
-
-    // User without church but has role (pending church approval)
-    if (!user.churchId && location === "/") {
-      // Stay on landing or redirect to onboarding
-      setLocation("/onboarding");
-      return;
-    }
+    // Standalone users (no church) - let them access the standalone dashboard
+    // No redirect needed - they can browse freely
   }, [user, isAuthenticated, isLoading, location, setLocation]);
 
   // Loading state
@@ -135,8 +131,9 @@ function AppContent() {
 
   // Determine role-based layout
   const isSuperAdmin = user?.role === "super_admin";
-  const isChurchAdmin = user?.role === "church_admin";
-  const isMember = user?.role === "member";
+  const isChurchAdmin = user?.role === "church_admin" && user?.churchId;
+  const hasChurch = !!user?.churchId;
+  const isStandalone = !user?.churchId; // User without organization
 
   // Sidebar configuration for church admins
   const sidebarStyle = {
@@ -219,7 +216,22 @@ function AppContent() {
     );
   }
 
-  // Member Layout (custom nav in pages)
+  // Standalone user (no organization) - show standalone dashboard
+  if (isStandalone) {
+    return (
+      <Switch>
+        <Route path="/" component={StandaloneDashboard} />
+        <Route path="/onboarding" component={Onboarding} />
+        <Route path="/browse-organizations" component={BrowseOrganizations} />
+        <Route path="/register-church" component={RegisterChurch} />
+        <Route path="/profile" component={Profile} />
+        <Route path="/accept-invite/:token" component={AcceptInvite} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
+  // Member Layout (user with organization, custom nav in pages)
   return (
     <Switch>
       <Route path="/" component={MemberHome} />

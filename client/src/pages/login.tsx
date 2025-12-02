@@ -1,16 +1,18 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2 } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
 import { signInWithGoogle } from "@/lib/firebase";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
       const user = await signInWithGoogle();
@@ -27,12 +29,10 @@ export default function Login() {
         
         if (response.ok) {
           const userData = await response.json();
-          // Check if user has a church/organization assigned
-          if (userData && userData.churchId) {
-            window.location.href = "/";
+          if (userData && userData.role === "super_admin") {
+            window.location.href = "/admin";
           } else {
-            // New user without organization - go to onboarding
-            window.location.href = "/onboarding";
+            window.location.href = "/";
           }
         } else {
           toast({
@@ -55,59 +55,71 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-accent/20 to-background flex items-center justify-center p-4">
-      <div className="fixed top-4 left-4">
-        <Button
-          variant="ghost"
-          onClick={() => window.location.href = "/"}
-        >
-          ← Back to Home
-        </Button>
-      </div>
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+    <div className="min-h-screen bg-gradient-to-b from-background via-accent/20 to-background flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center">
+            <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
               <Building2 className="h-10 w-10 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="font-serif text-3xl">Welcome Back</CardTitle>
-          <CardDescription>
-            Sign in to access your church community
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={handleLogin}
-            disabled={isLoading}
-            data-testid="button-login"
-          >
-            {isLoading ? "Signing in..." : "Sign in with Google"}
-          </Button>
-          
-          <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <a href="/" className="text-primary hover:underline">
-                Learn more
-              </a>
+          <h1 className="font-serif text-3xl font-bold text-foreground">
+            MinkahEnterprises
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Community Management Platform
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Welcome Back</CardTitle>
+            <CardDescription>
+              Sign in to access your community
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              data-testid="button-google-login"
+            >
+              <SiGoogle className="h-5 w-5 mr-2" />
+              {isLoading ? "Signing in..." : "Continue with Google"}
+            </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">
+                  New here?
+                </span>
+              </div>
+            </div>
+
+            <p className="text-center text-sm text-muted-foreground">
+              Sign in with Google to create your account. You can browse organizations or create your own community.
             </p>
-            <p className="text-sm text-muted-foreground">
-              <a href="/" className="text-primary hover:underline">
-                ← Back to Home
-              </a>
-            </p>
-          </div>
-          
-          <div className="border-t pt-4">
-            <p className="text-xs text-muted-foreground text-center">
-              New users will be prompted to register their organization or browse existing communities after signing in.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setLocation("/")}
+              data-testid="button-back-home"
+            >
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          By signing in, you agree to our Terms of Service and Privacy Policy.
+        </p>
+      </div>
     </div>
   );
 }
