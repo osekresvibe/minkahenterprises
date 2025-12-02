@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +9,7 @@ import { Building2, Search, Users, MapPin, Mail, Phone, Globe, CheckCircle } fro
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import type { Church } from "@shared/schema";
+import { AppHeader } from "@/components/app-header";
 
 export default function BrowseOrganizations() {
   const { user } = useAuth();
@@ -58,8 +58,9 @@ export default function BrowseOrganizations() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background">
+      <AppHeader title="Browse Organizations" />
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
         <div className="text-center space-y-2">
           <h1 className="font-serif text-4xl font-semibold text-foreground">
             Explore Organizations

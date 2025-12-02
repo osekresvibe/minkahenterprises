@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { User, Mail, Phone, MapPin, Edit, Save, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { AppHeader } from "@/components/app-header";
 
 export default function Profile() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -38,7 +38,7 @@ export default function Profile() {
   });
 
   useEffect(() => {
-    if (!authLoading && (!isAuthenticated || user?.role !== "member")) {
+    if (!authLoading && !isAuthenticated) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -48,7 +48,7 @@ export default function Profile() {
         window.location.href = "/api/login";
       }, 500);
     }
-  }, [user, isAuthenticated, authLoading, toast]);
+  }, [isAuthenticated, authLoading, toast]);
 
   useEffect(() => {
     if (user) {
@@ -145,9 +145,10 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-background">
+      <AppHeader title="My Profile" />
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="font-serif text-3xl font-semibold text-foreground mb-2">
               My Profile

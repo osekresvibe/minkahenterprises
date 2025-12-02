@@ -29,6 +29,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useLocation } from "wouter";
+import { AppHeader } from "@/components/app-header";
 
 export default function RegisterChurch() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -103,8 +104,9 @@ export default function RegisterChurch() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background">
+      <AppHeader title="Register Organization" />
+      <div className="max-w-2xl mx-auto p-6 space-y-6">
         <div className="text-center">
           <div className="flex justify-center mb-4">
             <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center">
@@ -112,7 +114,7 @@ export default function RegisterChurch() {
             </div>
           </div>
           <h1 className="font-serif text-3xl font-semibold text-foreground mb-2">
-            Register Your Church
+            Register Your Organization
           </h1>
           <p className="text-muted-foreground">
             Join our platform and start connecting your community

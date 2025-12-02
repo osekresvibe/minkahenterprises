@@ -1,61 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Users, Plus, Search, LogOut, User } from "lucide-react";
+import { Users, Plus, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
+import { AppHeader } from "@/components/app-header";
 
 export default function StandaloneDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-      window.location.href = "/";
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <Building2 className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="font-serif font-semibold text-foreground">
-                MinkahEnterprises
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setLocation("/profile")}
-                data-testid="button-profile"
-              >
-                <User className="h-4 w-4 mr-2" />
-                Profile
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                data-testid="button-logout"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader showBackHome={false} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
