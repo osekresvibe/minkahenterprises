@@ -200,11 +200,11 @@ function AppContent() {
   return (
     <Switch>
       <Route path="/" component={MemberHome} />
+      <Route path="/onboarding" component={Onboarding} />
       <Route path="/feed" component={MemberFeed} />
       <Route path="/feed-post/:id" component={PostDetail} />
       <Route path="/members/:userId" component={UserProfile} />
       <Route path="/events" component={Events} />
-      <Route path="/channels" component={Channels} />
       <Route path="/messages" component={Messages} />
       <Route path="/media" component={MediaLibrary} />
       <Route path="/check-in" component={CheckInPage} />
