@@ -56,6 +56,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-accent/20 to-background flex items-center justify-center p-4">
+      <div className="fixed top-4 left-4">
+        <Button
+          variant="ghost"
+          onClick={() => window.location.href = "/"}
+        >
+          ← Back to Home
+        </Button>
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -79,11 +87,16 @@ export default function Login() {
             {isLoading ? "Signing in..." : "Sign in with Google"}
           </Button>
           
-          <div className="text-center">
+          <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">
               Don't have an account?{" "}
               <a href="/" className="text-primary hover:underline">
                 Learn more
+              </a>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <a href="/" className="text-primary hover:underline">
+                ← Back to Home
               </a>
             </p>
           </div>
