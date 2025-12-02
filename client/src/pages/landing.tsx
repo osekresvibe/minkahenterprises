@@ -25,7 +25,14 @@ export default function Landing() {
         });
         
         if (response.ok) {
-          window.location.href = "/";
+          const userData = await response.json();
+          // Check if user has a church/organization assigned
+          if (userData.churchId) {
+            window.location.href = "/";
+          } else {
+            // New user without organization - go to onboarding
+            window.location.href = "/onboarding";
+          }
         } else {
           toast({
             title: "Login failed",
@@ -111,7 +118,7 @@ export default function Landing() {
                 disabled={isLoading}
                 data-testid="button-login"
               >
-                {isLoading ? "Signing in..." : "Sign in with Google"}
+                {isLoading ? "Signing in..." : "Sign Up / Sign In"}
               </Button>
               <Button
                 size="lg"
@@ -122,6 +129,10 @@ export default function Landing() {
                 Learn More
               </Button>
             </div>
+            
+            <p className="text-sm text-muted-foreground mt-4 max-w-md mx-auto">
+              Create an account to register your organization, browse and join existing communities, or wait for an invitation from your organization admin.
+            </p>
           </div>
         </div>
       </div>

@@ -102,9 +102,29 @@ function AppContent() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
-        <Route path="/onboarding" component={Onboarding} />
+        <Route path="/onboarding">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-screen">
+              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : isAuthenticated ? (
+            <Onboarding />
+          ) : (
+            <Landing />
+          )}
+        </Route>
         <Route path="/register-church" component={RegisterChurch} />
-        <Route path="/browse-organizations" component={BrowseOrganizations} />
+        <Route path="/browse-organizations">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-screen">
+              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : isAuthenticated ? (
+            <BrowseOrganizations />
+          ) : (
+            <Landing />
+          )}
+        </Route>
         <Route path="/accept-invite/:token?" component={AcceptInvite} />
         <Route component={NotFound} />
       </Switch>
