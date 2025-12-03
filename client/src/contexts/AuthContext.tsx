@@ -1,14 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { auth, signInWithGoogle, logOut, onAuthChange, getIdToken } from "@/lib/firebase";
+import { auth, signInWithGoogle, logOut, onAuthChange, initError } from "@/lib/firebase";
 import type { User as FirebaseUser } from "firebase/auth";
 import type { User } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 
 interface AuthContextType {
   firebaseUser: FirebaseUser | null;
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  authError: string | null;
   login: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -19,8 +19,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(initError?.message || null);
 
   useEffect(() => {
+    if (initError) {
+      console.error("Firebase initialization failed:", initError);
+      setIsLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthChange(async (fbUser) => {
       setFirebaseUser(fbUser);
       
@@ -39,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (response.ok) {
             const userData = await response.json();
             setUser(userData);
+            setAuthError(null);
           } else {
             setUser(null);
           }
@@ -57,8 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async () => {
+    if (initError) {
+      setAuthError("Authentication is not available. Please try again later.");
+      return;
+    }
     try {
       setIsLoading(true);
+      setAuthError(null);
       const fbUser = await signInWithGoogle();
       if (fbUser) {
         const idToken = await fbUser.getIdToken();
@@ -76,8 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userData);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
+      if (error?.code === "auth/popup-closed-by-user") {
+        return;
+      }
+      setAuthError(error?.message || "Login failed. Please try again.");
       throw error;
     } finally {
       setIsLoading(false);
@@ -105,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        authError,
         login,
         logout,
       }}

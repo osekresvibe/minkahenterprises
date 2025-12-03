@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Building2, AlertCircle } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
-import { signInWithGoogle } from "@/lib/firebase";
+import { signInWithGoogle, initError } from "@/lib/firebase";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -13,6 +14,15 @@ export default function Login() {
   const [, setLocation] = useLocation();
 
   const handleGoogleLogin = async () => {
+    if (initError) {
+      toast({
+        title: "Authentication unavailable",
+        description: "Please try again later or contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const user = await signInWithGoogle();
@@ -44,6 +54,9 @@ export default function Login() {
       }
     } catch (error: any) {
       console.error("Login error:", error);
+      if (error?.code === "auth/popup-closed-by-user") {
+        return;
+      }
       toast({
         title: "Login failed",
         description: error.message || "Please try again",
@@ -79,11 +92,20 @@ export default function Login() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {initError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Authentication is temporarily unavailable. Please try again later.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <Button
               className="w-full"
               size="lg"
               onClick={handleGoogleLogin}
-              disabled={isLoading}
+              disabled={isLoading || !!initError}
               data-testid="button-google-login"
             >
               <SiGoogle className="h-5 w-5 mr-2" />
