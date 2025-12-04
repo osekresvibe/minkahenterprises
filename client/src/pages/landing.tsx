@@ -77,6 +77,10 @@ export default function Landing() {
                 size="lg"
                 variant="outline"
                 className="min-w-48 text-base"
+                onClick={() => {
+                  const featuresSection = document.querySelector('h2');
+                  featuresSection?.scrollIntoView({ behavior: 'smooth' });
+                }}
                 data-testid="button-learn-more"
               >
                 Learn More
