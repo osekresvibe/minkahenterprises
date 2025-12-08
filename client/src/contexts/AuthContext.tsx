@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { auth, signInWithGoogle, logOut, onAuthChange, initError } from "@/lib/firebase";
+import { auth, logOut, onAuthChange, initError } from "@/lib/firebase";
 import type { User as FirebaseUser } from "firebase/auth";
 import type { User } from "@shared/schema";
 
@@ -9,7 +9,6 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   authError: string | null;
-  login: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -64,43 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const login = async () => {
-    if (initError) {
-      setAuthError("Authentication is not available. Please try again later.");
-      return;
-    }
-    try {
-      setIsLoading(true);
-      setAuthError(null);
-      const fbUser = await signInWithGoogle();
-      if (fbUser) {
-        const idToken = await fbUser.getIdToken();
-        const response = await fetch("/api/auth/firebase", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${idToken}`,
-          },
-          credentials: "include",
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        }
-      }
-    } catch (error: any) {
-      console.error("Login error:", error);
-      if (error?.code === "auth/popup-closed-by-user") {
-        return;
-      }
-      setAuthError(error?.message || "Login failed. Please try again.");
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const logout = async () => {
     try {
       await logOut();
@@ -123,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         authError,
-        login,
         logout,
       }}
     >
