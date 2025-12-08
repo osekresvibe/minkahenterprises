@@ -1,19 +1,28 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Building2, AlertCircle } from "lucide-react";
-import { SiGoogle } from "react-icons/si";
-import { signInWithGoogle, initError } from "@/lib/firebase";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Building2, AlertCircle, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { signInWithEmail, signUpWithEmail, resetPassword, initError } from "@/lib/firebase";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const handleGoogleLogin = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (initError) {
       toast({
         title: "Authentication unavailable",
@@ -23,9 +32,39 @@ export default function Login() {
       return;
     }
 
+    if (!email || !password) {
+      toast({
+        title: "Missing information",
+        description: "Please enter both email and password.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isSignUp && password !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure your passwords match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isSignUp && password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const user = await signInWithGoogle();
+      const user = isSignUp 
+        ? await signUpWithEmail(email, password)
+        : await signInWithEmail(email, password);
+      
       if (user) {
         const idToken = await user.getIdToken();
         const response = await fetch("/api/auth/firebase", {
@@ -53,13 +92,68 @@ export default function Login() {
         }
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      if (error?.code === "auth/popup-closed-by-user") {
-        return;
+      console.error("Auth error:", error);
+      let message = "Please try again";
+      
+      if (error?.code === "auth/user-not-found") {
+        message = "No account found with this email. Try signing up instead.";
+      } else if (error?.code === "auth/wrong-password") {
+        message = "Incorrect password. Please try again.";
+      } else if (error?.code === "auth/invalid-credential") {
+        message = "Invalid email or password.";
+      } else if (error?.code === "auth/email-already-in-use") {
+        message = "An account with this email already exists. Try signing in.";
+      } else if (error?.code === "auth/weak-password") {
+        message = "Password is too weak. Use at least 6 characters.";
+      } else if (error?.code === "auth/invalid-email") {
+        message = "Please enter a valid email address.";
+      } else if (error?.message) {
+        message = error.message;
       }
+      
       toast({
-        title: "Login failed",
-        description: error.message || "Please try again",
+        title: isSignUp ? "Sign up failed" : "Login failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await resetPassword(email);
+      toast({
+        title: "Reset email sent",
+        description: "Check your inbox for password reset instructions.",
+      });
+      setShowForgotPassword(false);
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      let message = "Please try again";
+      
+      if (error?.code === "auth/user-not-found") {
+        message = "No account found with this email.";
+      } else if (error?.code === "auth/invalid-email") {
+        message = "Please enter a valid email address.";
+      }
+      
+      toast({
+        title: "Reset failed",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -86,9 +180,16 @@ export default function Login() {
 
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl">
+              {showForgotPassword ? "Reset Password" : isSignUp ? "Create Account" : "Welcome Back"}
+            </CardTitle>
             <CardDescription>
-              Sign in to access your community
+              {showForgotPassword 
+                ? "Enter your email to receive reset instructions"
+                : isSignUp 
+                  ? "Sign up to join or create a community"
+                  : "Sign in to access your community"
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -101,34 +202,163 @@ export default function Login() {
               </Alert>
             )}
             
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleGoogleLogin}
-              disabled={isLoading || !!initError}
-              data-testid="button-google-login"
-            >
-              <SiGoogle className="h-5 w-5 mr-2" />
-              {isLoading ? "Signing in..." : "Continue with Google"}
-            </Button>
+            {showForgotPassword ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      className="pl-10"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isLoading || !!initError}
+                      data-testid="input-reset-email"
+                    />
+                  </div>
+                </div>
+                
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={isLoading || !!initError}
+                  data-testid="button-send-reset"
+                >
+                  {isLoading ? "Sending..." : "Send Reset Email"}
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setShowForgotPassword(false)}
+                  data-testid="button-back-to-login"
+                >
+                  Back to Login
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      className="pl-10"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isLoading || !!initError}
+                      data-testid="input-email"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      className="pl-10 pr-10"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isLoading || !!initError}
+                      data-testid="input-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                
+                {isSignUp && (
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="confirmPassword"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Confirm your password"
+                        className="pl-10"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        disabled={isLoading || !!initError}
+                        data-testid="input-confirm-password"
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {!isSignUp && (
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      className="text-sm text-primary hover:underline"
+                      onClick={() => setShowForgotPassword(true)}
+                      data-testid="button-forgot-password"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
+                
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={isLoading || !!initError}
+                  data-testid="button-submit"
+                >
+                  {isLoading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
+                </Button>
+              </form>
+            )}
             
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  New here?
-                </span>
-              </div>
-            </div>
+            {!showForgotPassword && (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">
+                      {isSignUp ? "Already have an account?" : "New here?"}
+                    </span>
+                  </div>
+                </div>
 
-            <p className="text-center text-sm text-muted-foreground">
-              Sign in with Google to create your account. You can browse organizations or create your own community.
-            </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setPassword("");
+                    setConfirmPassword("");
+                  }}
+                  data-testid="button-toggle-mode"
+                >
+                  {isSignUp ? "Sign In Instead" : "Create Account"}
+                </Button>
+              </>
+            )}
 
             <Button
-              variant="outline"
+              variant="ghost"
               className="w-full"
               onClick={() => setLocation("/")}
               data-testid="button-back-home"

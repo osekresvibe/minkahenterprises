@@ -1,5 +1,5 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, type User, type Auth } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, type User, type Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,17 +26,40 @@ try {
 
 export { auth, initError };
 
-const googleProvider = new GoogleAuthProvider();
-
-export async function signInWithGoogle(): Promise<User | null> {
+export async function signInWithEmail(email: string, password: string): Promise<User | null> {
   if (!auth) {
     throw new Error("Firebase is not initialized");
   }
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await signInWithEmailAndPassword(auth, email, password);
     return result.user;
   } catch (error) {
-    console.error("Error signing in with Google:", error);
+    console.error("Error signing in with email:", error);
+    throw error;
+  }
+}
+
+export async function signUpWithEmail(email: string, password: string): Promise<User | null> {
+  if (!auth) {
+    throw new Error("Firebase is not initialized");
+  }
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    return result.user;
+  } catch (error) {
+    console.error("Error signing up with email:", error);
+    throw error;
+  }
+}
+
+export async function resetPassword(email: string): Promise<void> {
+  if (!auth) {
+    throw new Error("Firebase is not initialized");
+  }
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
     throw error;
   }
 }
