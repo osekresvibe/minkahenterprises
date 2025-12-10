@@ -1,4 +1,5 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app';
+
+import { initializeApp, type FirebaseApp, getApps } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -16,14 +17,21 @@ let auth: Auth | null = null;
 
 export function initializeFirebase() {
   if (!app) {
-    console.log('Initializing Firebase with config:', {
-      apiKey: firebaseConfig.apiKey ? '***' : 'MISSING',
-      projectId: firebaseConfig.projectId || 'MISSING',
-      appId: firebaseConfig.appId ? '***' : 'MISSING'
-    });
+    // Check if Firebase is already initialized (prevents duplicate app error during HMR)
+    const existingApps = getApps();
+    if (existingApps.length > 0) {
+      app = existingApps[0];
+      auth = getAuth(app);
+    } else {
+      console.log('Initializing Firebase with config:', {
+        apiKey: firebaseConfig.apiKey ? '***' : 'MISSING',
+        projectId: firebaseConfig.projectId || 'MISSING',
+        appId: firebaseConfig.appId ? '***' : 'MISSING'
+      });
 
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+    }
   }
   return { app, auth: auth! };
 }
