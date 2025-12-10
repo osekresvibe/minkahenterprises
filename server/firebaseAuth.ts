@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert, type App, applicationDefault } from "firebase-admin/app";
+import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import type { Express, RequestHandler } from "express";
 import session from "express-session";
@@ -7,33 +7,7 @@ import { storage } from "./storage";
 
 let firebaseApp: App;
 
-function initializeFirebaseAdmin() {
-  if (getApps().length === 0) {
-    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
-    
-    if (serviceAccountJson) {
-      try {
-        const serviceAccount = JSON.parse(serviceAccountJson);
-        firebaseApp = initializeApp({
-          credential: cert(serviceAccount),
-          projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-        });
-      } catch (error) {
-        console.error("Failed to parse Firebase service account:", error);
-        throw new Error("Invalid FIREBASE_SERVICE_ACCOUNT JSON");
-      }
-    } else {
-      console.warn("FIREBASE_SERVICE_ACCOUNT not set - using project ID only (token verification may fail)");
-      firebaseApp = initializeApp({
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-      });
-    }
-  } else {
-    firebaseApp = getApps()[0];
-  }
-  return firebaseApp;
-}
-
+// Retain the original getSession function as it's part of the existing infrastructure.
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000;
   const pgStore = connectPg(session);
@@ -58,6 +32,7 @@ export function getSession() {
 
 let sharedSessionMiddleware: any = null;
 
+// Retain getSharedMiddlewares as it's part of the original structure.
 export function getSharedMiddlewares() {
   if (!sharedSessionMiddleware) {
     throw new Error("Auth not initialized - call setupAuth first");
@@ -67,14 +42,45 @@ export function getSharedMiddlewares() {
   };
 }
 
+// Integrate the new setupAuth logic for cleaner Firebase Admin initialization.
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
 
-  initializeFirebaseAdmin();
-  
+  // Initialize Firebase Admin using the cleaner approach from the edited snippet.
+  if (getApps().length === 0) {
+    try {
+      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+      if (!serviceAccountJson) {
+        console.error('FIREBASE_SERVICE_ACCOUNT environment variable is not set');
+        throw new Error('Firebase service account not configured');
+      }
+
+      const serviceAccountObj = JSON.parse(serviceAccountJson);
+
+      firebaseApp = initializeApp({
+        credential: cert(serviceAccountObj),
+        // Keep projectId from original setup as it's not in the edited snippet's initializeApp call
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      });
+
+      console.log('Firebase Admin initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Firebase Admin:', error);
+      throw error;
+    }
+  } else {
+    firebaseApp = getApps()[0];
+  }
+
+  // Initialize session middleware as in the original setupAuth.
   sharedSessionMiddleware = getSession();
   app.use(sharedSessionMiddleware);
 
+  // --- Original API Endpoints ---
+  // These are kept as the edited snippet does not provide replacements, and removing them would be a new change.
+
+  // Firebase Auth API Endpoint (original)
   app.post("/api/auth/firebase", async (req, res) => {
     try {
       const authHeader = req.headers.authorization;
@@ -83,10 +89,11 @@ export async function setupAuth(app: Express) {
       }
 
       const idToken = authHeader.split("Bearer ")[1];
+      // Using getAuth() without arguments assumes firebaseApp is initialized and available.
       const decodedToken = await getAuth().verifyIdToken(idToken);
-      
+
       const { uid, email, name, picture } = decodedToken;
-      
+
       const nameParts = (name || "").split(" ");
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || "";
@@ -101,7 +108,7 @@ export async function setupAuth(app: Express) {
 
       (req.session as any).userId = uid;
       (req.session as any).user = user;
-      
+
       req.session.save((err) => {
         if (err) {
           console.error("Session save error:", err);
@@ -115,6 +122,7 @@ export async function setupAuth(app: Express) {
     }
   });
 
+  // Logout API Endpoint (original)
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
@@ -126,10 +134,10 @@ export async function setupAuth(app: Express) {
     });
   });
 
+  // Get User API Endpoint (original)
   app.get("/api/auth/user", async (req, res) => {
     const userId = (req.session as any)?.userId;
-    const sessionUser = (req.session as any)?.user;
-    
+
     if (!userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
@@ -147,9 +155,10 @@ export async function setupAuth(app: Express) {
   });
 }
 
+// Retain the original isAuthenticated middleware.
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const userId = (req.session as any)?.userId;
-  
+
   if (!userId) {
     return res.status(401).json({ message: "Unauthorized" });
   }
@@ -164,5 +173,35 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   } catch (error) {
     console.error("Auth check error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Integrate the new authenticateToken middleware from the edited snippet.
+export const authenticateToken: RequestHandler = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+
+    // Use getAuth() without arguments, assuming firebaseApp is correctly initialized by setupAuth.
+    const decodedToken = await getAuth().verifyIdToken(idToken);
+
+    // Fetch user from database using Firebase UID. `storage` is imported at the top.
+    const user = await storage.getUserByFirebaseUid(decodedToken.uid);
+
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    (req as any).user = user;
+    next();
+  } catch (error) {
+    console.error('Authentication error:', error);
+    // Keeping 'Invalid token' as it's specific to the token verification failure.
+    return res.status(401).json({ message: 'Invalid token' });
   }
 };
