@@ -190,8 +190,8 @@ export const authenticateToken: RequestHandler = async (req, res, next) => {
     // Use getAuth() without arguments, assuming firebaseApp is correctly initialized by setupAuth.
     const decodedToken = await getAuth().verifyIdToken(idToken);
 
-    // Fetch user from database using Firebase UID. `storage` is imported at the top.
-    const user = await storage.getUserByFirebaseUid(decodedToken.uid);
+    // Fetch user from database using Firebase UID (used as user ID directly)
+    const user = await storage.getUser(decodedToken.uid);
 
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
