@@ -180,43 +180,29 @@ export class DatabaseStorage implements IStorage {
     lastName?: string;
     profileImageUrl?: string;
   }): Promise<User> {
-    // First check if user exists by ID (Firebase UID)
-    const existingById = await db.select().from(users).where(eq(users.id, userData.id));
-    if (existingById.length > 0) {
-      // Update existing user
-      const [updated] = await db
-        .update(users)
-        .set({
-          email: userData.email,
-          firstName: userData.firstName || existingById[0].firstName,
-          lastName: userData.lastName || existingById[0].lastName,
-          profileImageUrl: userData.profileImageUrl || existingById[0].profileImageUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userData.id))
-        .returning();
-      return updated;
-    }
+    // First, check if a user with this email already exists
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, userData.email));
 
-    // Check if user exists by email (from a previous auth system)
-    const existingByEmail = await db.select().from(users).where(eq(users.email, userData.email));
-    if (existingByEmail.length > 0) {
-      // User exists with this email - update their info but keep the existing ID
-      // (can't change ID due to foreign key constraints)
-      const [updated] = await db
+    if (existingUser) {
+      // Update existing user with new Firebase ID and other data
+      const [user] = await db
         .update(users)
         .set({
-          firstName: userData.firstName || existingByEmail[0].firstName,
-          lastName: userData.lastName || existingByEmail[0].lastName,
-          profileImageUrl: userData.profileImageUrl || existingByEmail[0].profileImageUrl,
+          id: userData.id,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
         })
         .where(eq(users.email, userData.email))
         .returning();
-      return updated;
+      return user;
     }
 
-    // Create new user with Firebase UID as ID
+    // Insert new user
     const [user] = await db
       .insert(users)
       .values({
@@ -226,6 +212,16 @@ export class DatabaseStorage implements IStorage {
         lastName: userData.lastName,
         profileImageUrl: userData.profileImageUrl,
         role: "member",
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
+          updatedAt: new Date(),
+        },
       })
       .returning();
 
