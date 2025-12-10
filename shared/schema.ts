@@ -128,6 +128,21 @@ export const posts = pgTable("posts", {
   index("posts_pinned_idx").on(table.isPinned),
 ]);
 
+// Standalone Posts table - for users without organization
+export const standalonePosts = pgTable("standalone_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  authorId: varchar("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  imageUrl: varchar("image_url"),
+  videoUrl: varchar("video_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("standalone_posts_author_idx").on(table.authorId),
+  index("standalone_posts_created_idx").on(table.createdAt),
+]);
+
 // Events table
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -342,6 +357,13 @@ export const postsRelations = relations(posts, ({ one }) => ({
   }),
 }));
 
+export const standalonePostsRelations = relations(standalonePosts, ({ one }) => ({
+  author: one(users, {
+    fields: [standalonePosts.authorId],
+    references: [users.id],
+  }),
+}));
+
 export const eventsRelations = relations(events, ({ one, many }) => ({
   church: one(churches, {
     fields: [events.churchId],
@@ -470,6 +492,15 @@ export const insertPostSchema = createInsertSchema(posts).pick({
   videoUrl: true,
   isPinned: true,
 });
+
+export const insertStandalonePostSchema = createInsertSchema(standalonePosts).pick({
+  title: true,
+  content: true,
+  imageUrl: true,
+  videoUrl: true,
+});
+export type InsertStandalonePost = z.infer<typeof insertStandalonePostSchema>;
+export type StandalonePost = typeof standalonePosts.$inferSelect;
 
 export const insertEventSchema = createInsertSchema(events).pick({
   title: true,

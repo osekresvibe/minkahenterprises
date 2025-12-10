@@ -12,14 +12,15 @@ import {
 import { initializeFirebase } from '@/lib/firebase';
 
 interface User {
-  id: number;
-  username: string;
+  id: string;
   email: string;
+  firstName?: string;
+  lastName?: string;
   role: string;
-  churchId: number | null;
-  firebaseUid?: string;
+  churchId: string | null;
   profileImageUrl?: string;
-  displayName?: string;
+  phone?: string;
+  bio?: string;
 }
 
 interface AuthContextType {
@@ -63,17 +64,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserData = async (fbUser: FirebaseUser) => {
     try {
       const idToken = await fbUser.getIdToken();
-      const response = await fetch('/api/auth/user', {
-        headers: {
-          'Authorization': `Bearer ${idToken}`
-        }
+      
+      // First, try to get user from existing session
+      const sessionResponse = await fetch('/api/auth/user', {
+        credentials: 'include'
       });
 
-      if (response.ok) {
-        const userData = await response.json();
+      if (sessionResponse.ok) {
+        const userData = await sessionResponse.json();
+        setUser(userData);
+        setIsLoading(false);
+        return;
+      }
+
+      // If no session, create one via Firebase auth endpoint
+      const authResponse = await fetch('/api/auth/firebase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        credentials: 'include'
+      });
+
+      if (authResponse.ok) {
+        const userData = await authResponse.json();
         setUser(userData);
       } else {
-        console.error('Failed to fetch user data:', await response.text());
+        console.error('Failed to authenticate:', await authResponse.text());
         setUser(null);
       }
     } catch (error) {

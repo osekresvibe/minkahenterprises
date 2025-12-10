@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./firebaseAuth";
 import type { User } from "@shared/schema";
-import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertDirectMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema, churches, users } from "@shared/schema";
+import { insertChurchSchema, updateChurchSchema, insertEventSchema, insertPostSchema, insertCheckInSchema, insertMessageSchema, insertDirectMessageSchema, insertInvitationSchema, insertMinistryTeamSchema, insertTeamMemberSchema, insertMediaFileSchema, churches, users, standalonePosts } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
 import multer from "multer";
@@ -1422,6 +1422,109 @@ export function registerRoutes(app: Express) {
       res.status(201).json(post);
     } catch (error) {
       res.status(400).json({ message: "Invalid post data" });
+    }
+  });
+
+  // ============ STANDALONE POSTS ENDPOINTS ============
+  // For users without an organization who want to post on the platform
+
+  // Get standalone posts (user's own + all public)
+  app.get("/api/standalone-posts", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    try {
+      const posts = await db.query.standalonePosts.findMany({
+        with: {
+          author: true,
+        },
+        orderBy: (standalonePosts, { desc }) => [desc(standalonePosts.createdAt)],
+      });
+      
+      res.json(posts);
+    } catch (error) {
+      console.error("Error fetching standalone posts:", error);
+      res.status(500).json({ message: "Failed to fetch posts" });
+    }
+  });
+
+  // Create standalone post
+  app.post("/api/standalone-posts", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    try {
+      const { title, content, imageUrl, videoUrl } = req.body;
+      
+      if (!content || !content.trim()) {
+        return res.status(400).json({ message: "Content is required" });
+      }
+      
+      const [post] = await db.insert(standalonePosts).values({
+        authorId: user.id,
+        title: title || "Untitled Post",
+        content: content.trim(),
+        imageUrl: imageUrl || null,
+        videoUrl: videoUrl || null,
+      }).returning();
+      
+      // Return with author info
+      const postWithAuthor = await db.query.standalonePosts.findFirst({
+        where: eq(standalonePosts.id, post.id),
+        with: {
+          author: true,
+        },
+      });
+      
+      res.status(201).json(postWithAuthor);
+    } catch (error) {
+      console.error("Error creating standalone post:", error);
+      res.status(400).json({ message: "Failed to create post" });
+    }
+  });
+
+  // Get single standalone post
+  app.get("/api/standalone-posts/:id", async (req, res) => {
+    try {
+      const post = await db.query.standalonePosts.findFirst({
+        where: eq(standalonePosts.id, req.params.id),
+        with: {
+          author: true,
+        },
+      });
+      
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+      
+      res.json(post);
+    } catch (error) {
+      console.error("Error fetching post:", error);
+      res.status(500).json({ message: "Failed to fetch post" });
+    }
+  });
+
+  // Delete standalone post (only by author)
+  app.delete("/api/standalone-posts/:id", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    
+    try {
+      const post = await db.query.standalonePosts.findFirst({
+        where: eq(standalonePosts.id, req.params.id),
+      });
+      
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+      
+      if (post.authorId !== user.id && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Not authorized to delete this post" });
+      }
+      
+      await db.delete(standalonePosts).where(eq(standalonePosts.id, req.params.id));
+      
+      res.json({ message: "Post deleted" });
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      res.status(500).json({ message: "Failed to delete post" });
     }
   });
 
