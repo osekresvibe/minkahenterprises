@@ -3,22 +3,205 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { 
   Users, Plus, Search, Home, Calendar, MessageSquare, 
   Settings, Bell, Heart, Share2, Bookmark, TrendingUp,
-  Sparkles, Globe, ArrowRight
+  Sparkles, Globe, ArrowRight, Image, Video, X, Upload,
+  Facebook, Twitter, Instagram, Link as LinkIcon, Copy
 } from "lucide-react";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  authorId: string;
+  createdAt: string;
+  author?: {
+    firstName?: string;
+    lastName?: string;
+    profileImageUrl?: string;
+  };
+}
 
 export default function StandaloneDashboard() {
   const { user, logout } = useFirebaseAuth();
   const [, setLocation] = useLocation();
-  const [newPost, setNewPost] = useState("");
+  const [newPostContent, setNewPostContent] = useState("");
+  const [newPostTitle, setNewPostTitle] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedPostForShare, setSelectedPostForShare] = useState<Post | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: posts = [], isLoading: postsLoading } = useQuery<Post[]>({
+    queryKey: ["/api/standalone-posts"],
+  });
+
+  const createPostMutation = useMutation({
+    mutationFn: async (data: { title: string; content: string; imageUrl?: string; videoUrl?: string }) => {
+      return await apiRequest("POST", "/api/standalone-posts", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/standalone-posts"] });
+      setNewPostContent("");
+      setNewPostTitle("");
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      toast({
+        title: "Posted!",
+        description: "Your post has been shared with the community.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create post. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const getInitials = (firstName?: string, lastName?: string) => {
     return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase() || '?';
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select a file under 50MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
+  const removeFile = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCreatePost = async () => {
+    if (!newPostContent.trim()) {
+      toast({
+        title: "Content required",
+        description: "Please write something to share.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let imageUrl: string | undefined;
+    let videoUrl: string | undefined;
+
+    if (selectedFile) {
+      setIsUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("category", "post");
+
+        const response = await fetch("/api/media/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error("Upload failed");
+        const mediaFile = await response.json();
+
+        if (selectedFile.type.startsWith("video/")) {
+          videoUrl = mediaFile.fileUrl;
+        } else {
+          imageUrl = mediaFile.fileUrl;
+        }
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload media. Please try again.",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
+    createPostMutation.mutate({
+      title: newPostTitle || "Untitled Post",
+      content: newPostContent,
+      imageUrl,
+      videoUrl,
+    });
+  };
+
+  const handleShare = (post: Post) => {
+    setSelectedPostForShare(post);
+    setShowShareModal(true);
+  };
+
+  const shareToSocialMedia = (platform: string) => {
+    if (!selectedPostForShare) return;
+    
+    const postUrl = `${window.location.origin}/post/${selectedPostForShare.id}`;
+    const text = encodeURIComponent(selectedPostForShare.content.substring(0, 100));
+    const url = encodeURIComponent(postUrl);
+
+    const shareUrls: Record<string, string> = {
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+      twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+      instagram: `https://www.instagram.com/`,
+    };
+
+    if (platform === "instagram") {
+      navigator.clipboard.writeText(postUrl);
+      toast({
+        title: "Link copied for Instagram!",
+        description: "Paste this link in your Instagram bio or story.",
+      });
+    }
+
+    window.open(shareUrls[platform], "_blank", "width=600,height=400");
+  };
+
+  const copyPostLink = () => {
+    if (!selectedPostForShare) return;
+    const postUrl = `${window.location.origin}/post/${selectedPostForShare.id}`;
+    navigator.clipboard.writeText(postUrl);
+    toast({
+      title: "Link copied",
+      description: "Post link has been copied to clipboard.",
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { 
+      month: "short", 
+      day: "numeric",
+      year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined
+    });
   };
 
   return (
@@ -135,26 +318,96 @@ export default function StandaloneDashboard() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex gap-3">
-                  <Avatar className="h-10 w-10">
+                  <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={user?.profileImageUrl ?? undefined} />
                     <AvatarFallback>
                       {getInitials(user?.firstName ?? undefined, user?.lastName ?? undefined)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 space-y-3">
+                    <Input
+                      placeholder="Post title (optional)"
+                      value={newPostTitle}
+                      onChange={(e) => setNewPostTitle(e.target.value)}
+                      className="font-medium"
+                      data-testid="input-post-title"
+                    />
                     <Textarea 
                       placeholder="Share something with the community..."
-                      value={newPost}
-                      onChange={(e) => setNewPost(e.target.value)}
+                      value={newPostContent}
+                      onChange={(e) => setNewPostContent(e.target.value)}
                       className="min-h-[80px] resize-none"
                       data-testid="input-new-post"
                     />
-                    <div className="flex justify-end">
+
+                    {previewUrl && (
+                      <div className="relative rounded-lg overflow-hidden border">
+                        {selectedFile?.type.startsWith("video/") ? (
+                          <video src={previewUrl} controls className="max-h-64 w-full object-cover" />
+                        ) : (
+                          <img src={previewUrl} alt="Preview" className="max-h-64 w-full object-cover" />
+                        )}
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="absolute top-2 right-2"
+                          onClick={removeFile}
+                          data-testid="button-remove-media"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*,video/*"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          id="media-upload"
+                          data-testid="input-media"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="gap-2"
+                          data-testid="button-add-image"
+                        >
+                          <Image className="h-4 w-4" />
+                          <span className="hidden sm:inline">Image</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="gap-2"
+                          data-testid="button-add-video"
+                        >
+                          <Video className="h-4 w-4" />
+                          <span className="hidden sm:inline">Video</span>
+                        </Button>
+                      </div>
                       <Button 
-                        disabled={!newPost.trim()}
+                        onClick={handleCreatePost}
+                        disabled={!newPostContent.trim() || isUploading || createPostMutation.isPending}
                         data-testid="button-post"
                       >
-                        Post
+                        {isUploading ? (
+                          <>
+                            <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                            Uploading...
+                          </>
+                        ) : createPostMutation.isPending ? (
+                          "Posting..."
+                        ) : (
+                          "Post"
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -179,24 +432,99 @@ export default function StandaloneDashboard() {
               </TabsList>
 
               <TabsContent value="feed" className="mt-4 space-y-4">
-                <Card>
-                  <CardContent className="p-6 text-center">
-                    <div className="mx-auto h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                      <MessageSquare className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="font-semibold text-lg mb-2">Your feed is empty</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Join organizations to see posts from communities you're part of, or check out the Discover tab to explore public content.
-                    </p>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setLocation("/browse-organizations")}
-                      data-testid="button-explore-communities"
-                    >
-                      Explore Communities
-                    </Button>
-                  </CardContent>
-                </Card>
+                {postsLoading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : posts.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <div className="mx-auto h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                        <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">Your feed is empty</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Create your first post above, or join organizations to see posts from communities.
+                      </p>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setLocation("/browse-organizations")}
+                        data-testid="button-explore-communities"
+                      >
+                        Explore Communities
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  posts.map((post) => (
+                    <Card key={post.id} className="hover-elevate" data-testid={`post-card-${post.id}`}>
+                      {(post.imageUrl || post.videoUrl) && (
+                        <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
+                          {post.videoUrl ? (
+                            <video
+                              src={post.videoUrl}
+                              controls
+                              className="w-full h-full object-cover"
+                              data-testid={`video-${post.id}`}
+                            />
+                          ) : post.imageUrl ? (
+                            <img
+                              src={post.imageUrl}
+                              alt={post.title}
+                              className="w-full h-full object-cover"
+                              data-testid={`image-${post.id}`}
+                            />
+                          ) : null}
+                        </div>
+                      )}
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={post.author?.profileImageUrl || undefined} />
+                            <AvatarFallback>
+                              {getInitials(post.author?.firstName, post.author?.lastName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-semibold">
+                              {post.author?.firstName} {post.author?.lastName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{formatDate(post.createdAt)}</p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {post.title && post.title !== "Untitled Post" && (
+                          <h3 className="font-semibold text-lg">{post.title}</h3>
+                        )}
+                        <p className="text-foreground whitespace-pre-wrap">{post.content}</p>
+                        <div className="flex items-center gap-2 pt-2 border-t">
+                          <Button variant="ghost" size="sm" className="gap-1" data-testid={`button-like-${post.id}`}>
+                            <Heart className="h-4 w-4" />
+                            <span className="text-xs">Like</span>
+                          </Button>
+                          <Button variant="ghost" size="sm" className="gap-1" data-testid={`button-comment-${post.id}`}>
+                            <MessageSquare className="h-4 w-4" />
+                            <span className="text-xs">Comment</span>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="gap-1"
+                            onClick={() => handleShare(post)}
+                            data-testid={`button-share-${post.id}`}
+                          >
+                            <Share2 className="h-4 w-4" />
+                            <span className="text-xs">Share</span>
+                          </Button>
+                          <Button variant="ghost" size="sm" className="gap-1 ml-auto" data-testid={`button-bookmark-${post.id}`}>
+                            <Bookmark className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </TabsContent>
 
               <TabsContent value="discover" className="mt-4 space-y-4">
@@ -229,55 +557,6 @@ export default function StandaloneDashboard() {
                       <Button variant="ghost" size="sm" className="gap-1">
                         <MessageSquare className="h-4 w-4" />
                         <span className="text-xs">5</span>
-                      </Button>
-                      <Button variant="ghost" size="sm" className="gap-1">
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="gap-1 ml-auto">
-                        <Bookmark className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 bg-accent/20">
-                        <AvatarFallback className="bg-accent/20 text-accent-foreground">TIP</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-semibold">Getting Started Tips</p>
-                        <p className="text-xs text-muted-foreground">Community Guide</p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-foreground">
-                      Here are some tips to get the most out of the platform:
-                    </p>
-                    <ul className="space-y-2 text-sm text-muted-foreground">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary font-bold">1.</span>
-                        Complete your profile to help others recognize you
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary font-bold">2.</span>
-                        Browse organizations to find communities that match your interests
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary font-bold">3.</span>
-                        Or start your own organization and invite friends and family
-                      </li>
-                    </ul>
-                    <div className="flex items-center gap-4 pt-2 border-t">
-                      <Button variant="ghost" size="sm" className="gap-1">
-                        <Heart className="h-4 w-4" />
-                        <span className="text-xs">12</span>
-                      </Button>
-                      <Button variant="ghost" size="sm" className="gap-1">
-                        <MessageSquare className="h-4 w-4" />
-                        <span className="text-xs">2</span>
                       </Button>
                       <Button variant="ghost" size="sm" className="gap-1">
                         <Share2 className="h-4 w-4" />
@@ -359,6 +638,89 @@ export default function StandaloneDashboard() {
           </aside>
         </div>
       </main>
+
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share This Post</DialogTitle>
+            <DialogDescription>
+              Share to social media or copy the link
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPostForShare && (
+            <div className="space-y-4">
+              <Card className="bg-muted">
+                <CardContent className="p-4">
+                  {selectedPostForShare.imageUrl && (
+                    <img
+                      src={selectedPostForShare.imageUrl}
+                      alt="Preview"
+                      className="w-full h-32 object-cover rounded mb-2"
+                    />
+                  )}
+                  {selectedPostForShare.videoUrl && (
+                    <video 
+                      src={selectedPostForShare.videoUrl} 
+                      className="w-full h-32 object-cover rounded mb-2" 
+                    />
+                  )}
+                  <h4 className="font-semibold text-sm text-foreground">{selectedPostForShare.title}</h4>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{selectedPostForShare.content}</p>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => shareToSocialMedia("facebook")}
+                  className="flex items-center justify-center gap-2"
+                  data-testid="button-share-facebook"
+                >
+                  <Facebook className="h-4 w-4" />
+                  Facebook
+                </Button>
+                <Button
+                  onClick={() => shareToSocialMedia("twitter")}
+                  variant="outline"
+                  className="flex items-center justify-center gap-2"
+                  data-testid="button-share-twitter"
+                >
+                  <Twitter className="h-4 w-4" />
+                  Twitter
+                </Button>
+                <Button
+                  onClick={() => shareToSocialMedia("instagram")}
+                  variant="outline"
+                  className="flex items-center justify-center gap-2"
+                  data-testid="button-share-instagram"
+                >
+                  <Instagram className="h-4 w-4" />
+                  Instagram
+                </Button>
+                <Button
+                  onClick={copyPostLink}
+                  variant="outline"
+                  className="flex items-center justify-center gap-2"
+                  data-testid="button-copy-link"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy Link
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowShareModal(false)}
+              data-testid="button-close-share"
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
