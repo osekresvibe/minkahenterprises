@@ -171,34 +171,38 @@ async function seedDatabase() {
     for (let j = 0; j < memberCount; j++) {
       const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
       const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+      const memberSinceYear = 2018 + Math.floor(Math.random() * 6);
+      const memberSinceMonth = Math.floor(Math.random() * 12);
+      const dobYear = 1960 + Math.floor(Math.random() * 40);
+      const dobMonth = Math.floor(Math.random() * 12);
+      const dobDay = Math.floor(Math.random() * 28) + 1;
+      
       const member = await storage.upsertUser({
         id: `user-${i}-${j}`,
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}${j}@email.com`,
         firstName,
         lastName,
         role: "member",
+        profileImageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firstName}${lastName}${i}${j}`,
       });
       await storage.updateUserRole(member.id, "member", church.id);
       
-      // Add detailed profile information for each member
-      const memberSinceYear = 2018 + Math.floor(Math.random() * 6);
-      const memberSinceMonth = Math.floor(Math.random() * 12);
-      
+      // Add comprehensive profile information for each member
       await storage.updateUserProfile(member.id, {
-        phone: `(555) ${200 + j * 10}-${2000 + j * 100}`,
-        address: `${200 + j * 25} Oak Street, City ${i + 1}, State ${10000 + i}`,
-        bio: bios[Math.floor(Math.random() * bios.length)],
-        dateOfBirth: new Date(1960 + Math.floor(Math.random() * 40), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
-        occupation: occupations[Math.floor(Math.random() * occupations.length)],
-        education: j % 3 === 0 ? "Bachelor's Degree" : j % 3 === 1 ? "Master's Degree" : "High School",
-        maritalStatus: j % 2 === 0 ? "Married" : j % 3 === 0 ? "Single" : "Married",
-        familyInfo: j % 2 === 0 ? "Spouse and 2 children" : j % 3 === 0 ? "Single" : "Spouse",
-        hobbies: hobbies[Math.floor(Math.random() * hobbies.length)],
-        servingAreas: servingAreas[Math.floor(Math.random() * servingAreas.length)],
-        baptismDate: j % 2 === 0 ? new Date(memberSinceYear, memberSinceMonth + 2, 15).toISOString() : undefined,
-        memberSince: new Date(memberSinceYear, memberSinceMonth, 1).toISOString(),
+        phone: `(555) ${200 + (j * 13) % 900}-${2000 + (j * 127) % 9000}`,
+        address: `${200 + j * 25} ${j % 2 === 0 ? 'Oak' : 'Maple'} Street, City ${i + 1}, State ${10000 + i}`,
+        bio: bios[j % bios.length] + ` I've been a member since ${memberSinceYear} and love serving in various ministries.`,
+        dateOfBirth: new Date(dobYear, dobMonth, dobDay).toISOString().split('T')[0],
+        occupation: occupations[j % occupations.length],
+        education: j % 3 === 0 ? "Bachelor's Degree" : j % 3 === 1 ? "Master's Degree" : j % 5 === 0 ? "Doctorate" : "High School Diploma",
+        maritalStatus: j % 2 === 0 ? "Married" : j % 3 === 0 ? "Single" : j % 5 === 0 ? "Widowed" : "Married",
+        familyInfo: j % 2 === 0 ? "Married with 2 children" : j % 3 === 0 ? "Single" : j % 5 === 0 ? "Married with 3 children" : "Married with 1 child",
+        hobbies: hobbies[j % hobbies.length],
+        servingAreas: servingAreas[j % servingAreas.length],
+        baptismDate: j % 2 === 0 ? new Date(memberSinceYear, memberSinceMonth + 2, 15).toISOString().split('T')[0] : undefined,
+        memberSince: new Date(memberSinceYear, memberSinceMonth, 1).toISOString().split('T')[0],
         emergencyContactName: `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`,
-        emergencyContactPhone: `(555) ${300 + j}-${3000 + j * 10}`
+        emergencyContactPhone: `(555) ${300 + (j * 17) % 900}-${3000 + (j * 173) % 9000}`
       });
       
       churchMembers.push(member);
