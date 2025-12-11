@@ -38,6 +38,29 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Churches table - multi-tenant core entity (supports churches and other organizations)
+// Defined first to avoid circular reference issues
+export const churches = pgTable("churches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  address: text("address"),
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  website: varchar("website", { length: 255 }),
+  logoUrl: varchar("logo_url"),
+  bannerUrl: varchar("banner_url"),
+  organizationType: organizationTypeEnum("organization_type").notNull().default("church"),
+  status: churchStatusEnum("status").notNull().default("pending"),
+  adminUserId: varchar("admin_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("churches_status_idx").on(table.status),
+  index("churches_admin_idx").on(table.adminUserId),
+  index("churches_type_idx").on(table.organizationType),
+]);
+
 // Users table - extended for Replit Auth with multi-tenant role support
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -54,41 +77,19 @@ export const users = pgTable("users", {
   maritalStatus: varchar("marital_status"),
   familyInfo: text("family_info"),
   hobbies: text("hobbies"),
-  servingAreas: text("serving_areas"), // Ministry areas they're interested in
+  servingAreas: text("serving_areas"),
   baptismDate: varchar("baptism_date"),
   memberSince: varchar("member_since"),
-  socialMediaLinks: text("social_media_links"), // JSON string for flexibility
+  socialMediaLinks: text("social_media_links"),
   emergencyContactName: varchar("emergency_contact_name"),
   emergencyContactPhone: varchar("emergency_contact_phone"),
   role: userRoleEnum("role").notNull().default("member"),
-  churchId: varchar("church_id").references(() => churches.id, { onDelete: "cascade" }), // null for super_admin
+  churchId: varchar("church_id").references(() => churches.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
   index("users_church_idx").on(table.churchId),
   index("users_role_idx").on(table.role),
-]);
-
-// Churches table - multi-tenant core entity (supports churches and other organizations)
-export const churches = pgTable("churches", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
-  address: text("address"),
-  phone: varchar("phone", { length: 50 }),
-  email: varchar("email", { length: 255 }),
-  website: varchar("website", { length: 255 }),
-  logoUrl: varchar("logo_url"),
-  bannerUrl: varchar("banner_url"),
-  organizationType: organizationTypeEnum("organization_type").notNull().default("church"),
-  status: churchStatusEnum("status").notNull().default("pending"),
-  adminUserId: varchar("admin_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  index("churches_status_idx").on(table.status),
-  index("churches_admin_idx").on(table.adminUserId),
-  index("churches_type_idx").on(table.organizationType),
 ]);
 
 // Invitations table - for inviting new members to churches
