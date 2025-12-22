@@ -188,8 +188,8 @@ export default function CreatePost() {
       const content = form.getValues('content');
       
       toast({
-        title: "Post created! Share it now",
-        description: "Generate an image to share on social media",
+        title: "Truth shared! Spread the word",
+        description: "Share your truth on social media",
         action: (
           <div className="flex gap-2">
             <Button size="sm" variant="default" onClick={() => handleGenerateAndOpenShareModal(title, content, lastUploadedImageUrl)}>
@@ -264,36 +264,36 @@ export default function CreatePost() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-3xl font-semibold text-foreground mb-2">
-            Create Post
+            Speak Your Truth
           </h1>
           <p className="text-muted-foreground">
-            Share updates and announcements with your community
+            Share your journey, testimony, and experiences with your community
           </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Post Details</CardTitle>
+          <CardTitle>Share Your Truth</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
+              <Label htmlFor="title">Title (Optional)</Label>
               <Input
                 id="title"
-                {...form.register("title", { required: true })}
-                placeholder="Enter post title"
+                {...form.register("title")}
+                placeholder="Give your truth a title..."
                 data-testid="input-title"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="content">Content *</Label>
+              <Label htmlFor="content">Your Truth *</Label>
               <Textarea
                 id="content"
                 {...form.register("content", { required: true })}
-                placeholder="Write your announcement..."
+                placeholder="Share your journey, experiences, testimony, or thoughts..."
                 rows={8}
                 data-testid="textarea-content"
               />
@@ -380,7 +380,7 @@ export default function CreatePost() {
                 disabled={createPostMutation.isPending || uploadingMedia}
                 data-testid="button-submit"
               >
-                {uploadingMedia ? "Uploading media..." : createPostMutation.isPending ? "Creating..." : "Create Post"}
+                {uploadingMedia ? "Uploading media..." : createPostMutation.isPending ? "Sharing..." : "Share Your Truth"}
               </Button>
               <Button
                 type="button"

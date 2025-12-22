@@ -67,25 +67,28 @@ export default function MemberFeed() {
 
   const createPostMutation = useMutation({
     mutationFn: async (data: PostFormData & { imageUrl?: string }) => {
-      return await apiRequest("POST", "/api/member-posts", data);
+      return await apiRequest("POST", "/api/truth-posts", {
+        content: `${data.title}\n\n${data.content}`,
+        imageUrl: data.imageUrl,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/member-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/truth-posts/my-posts"] });
       setShowCreateModal(false);
       form.reset();
       setSelectedFile(null);
       setPreviewUrl(null);
       setLastUploadedImageUrl(undefined);
       toast({
-        title: "Success",
-        description: "Post created successfully",
+        title: "Truth Shared!",
+        description: "Your truth post has been shared with the community",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to create post",
+        description: "Failed to share your truth",
         variant: "destructive",
       });
     },
@@ -180,13 +183,13 @@ export default function MemberFeed() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div>
-                <h1 className="font-serif text-xl font-semibold text-foreground">Community Feed</h1>
-                <p className="text-xs text-muted-foreground">Share updates and connect with your community</p>
+                <h1 className="font-serif text-xl font-semibold text-foreground">Community Truth Feed</h1>
+                <p className="text-xs text-muted-foreground">Share your truth and connect with your community</p>
               </div>
             </div>
             <Button onClick={() => setShowCreateModal(true)} data-testid="button-new-post">
               <MessageCircle className="h-4 w-4 mr-2" />
-              New Post
+              Share Your Truth
             </Button>
           </div>
         </div>
@@ -202,9 +205,9 @@ export default function MemberFeed() {
           <Card>
             <CardContent className="py-12 text-center">
               <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">No posts yet in your community</p>
+              <p className="text-muted-foreground mb-4">No truth posts yet in your community</p>
               <Button onClick={() => setShowCreateModal(true)} data-testid="button-create-first-post">
-                Create the first post
+                Be the first to share your truth
               </Button>
             </CardContent>
           </Card>
@@ -302,31 +305,28 @@ export default function MemberFeed() {
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create a New Post</DialogTitle>
+            <DialogTitle>Speak Your Truth</DialogTitle>
             <DialogDescription>
-              Share images, videos, or updates with your community
+              Share your journey, testimony, or thoughts with the community
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Post Title</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">Title (Optional)</label>
               <Input
-                {...form.register("title", { required: "Title is required" })}
-                placeholder="Give your post a title..."
+                {...form.register("title")}
+                placeholder="Give your truth a title..."
                 data-testid="input-post-title"
               />
-              {form.formState.errors.title && (
-                <p className="text-xs text-destructive mt-1">{form.formState.errors.title.message}</p>
-              )}
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Content</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">Your Truth *</label>
               <Textarea
-                {...form.register("content", { required: "Content is required" })}
-                placeholder="Share your thoughts, updates, or news..."
-                rows={4}
+                {...form.register("content", { required: "Please share your truth" })}
+                placeholder="Share your journey, experiences, testimony, or thoughts..."
+                rows={6}
                 data-testid="input-post-content"
               />
               {form.formState.errors.content && (
@@ -399,7 +399,7 @@ export default function MemberFeed() {
                 disabled={createPostMutation.isPending || uploadingMedia}
                 data-testid="button-publish-post"
               >
-                {createPostMutation.isPending || uploadingMedia ? "Publishing..." : "Publish Post"}
+                {createPostMutation.isPending || uploadingMedia ? "Sharing..." : "Share Your Truth"}
               </Button>
             </DialogFooter>
           </form>
