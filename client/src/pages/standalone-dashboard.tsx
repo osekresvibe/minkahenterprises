@@ -163,7 +163,7 @@ export default function StandaloneDashboard() {
 
   const shareToSocialMedia = (platform: string) => {
     if (!selectedPostForShare) return;
-    
+
     const postUrl = `${window.location.origin}/post/${selectedPostForShare.id}`;
     const text = encodeURIComponent(selectedPostForShare.content.substring(0, 100));
     const url = encodeURIComponent(postUrl);
@@ -333,7 +333,7 @@ export default function StandaloneDashboard() {
                       data-testid="input-post-title"
                     />
                     <Textarea 
-                      placeholder="Share something with the community..."
+                      placeholder="Share your truth..."
                       value={newPostContent}
                       onChange={(e) => setNewPostContent(e.target.value)}
                       className="min-h-[80px] resize-none"
