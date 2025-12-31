@@ -13,9 +13,10 @@ import { eq, and, asc, desc } from "drizzle-orm";
 import type { Church } from "@shared/schema";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2024-12-18.acacia",
-});
+// Only initialize Stripe if API key is provided
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-10-29.clover" as any })
+  : null;
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -1556,6 +1557,10 @@ export function registerRoutes(app: Express) {
   
   // Create payment intent for standalone posts or donations
   app.post("/api/payments/create-intent", isAuthenticated, getCurrentUser, async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ message: "Payment processing is not configured" });
+    }
+    
     const user = res.locals.user as User;
     const { amount, currency = "usd", description } = req.body;
 
@@ -1586,6 +1591,10 @@ export function registerRoutes(app: Express) {
 
   // Create subscription for premium features
   app.post("/api/payments/create-subscription", isAuthenticated, getCurrentUser, async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ message: "Payment processing is not configured" });
+    }
+    
     const user = res.locals.user as User;
     const { priceId, paymentMethodId } = req.body;
 
@@ -1595,7 +1604,7 @@ export function registerRoutes(app: Express) {
 
     try {
       // Create or get customer
-      let customerId = user.stripeCustomerId;
+      let customerId = (user as any).stripeCustomerId;
       
       if (!customerId) {
         const customer = await stripe.customers.create({
@@ -1642,6 +1651,10 @@ export function registerRoutes(app: Express) {
 
   // Webhook handler for Stripe events
   app.post("/api/payments/webhook", async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ message: "Payment processing is not configured" });
+    }
+    
     const sig = req.headers['stripe-signature'] as string;
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -1693,16 +1706,20 @@ export function registerRoutes(app: Express) {
 
   // Get customer portal session for managing subscriptions
   app.post("/api/payments/create-portal-session", isAuthenticated, getCurrentUser, async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ message: "Payment processing is not configured" });
+    }
+    
     const user = res.locals.user as User;
     const { returnUrl } = req.body;
 
-    if (!user.stripeCustomerId) {
+    if (!(user as any).stripeCustomerId) {
       return res.status(400).json({ message: "No active subscription found" });
     }
 
     try {
       const session = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId,
+        customer: (user as any).stripeCustomerId,
         return_url: returnUrl || `${req.protocol}://${req.get('host')}/profile`,
       });
 
