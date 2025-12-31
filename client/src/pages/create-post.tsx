@@ -420,76 +420,26 @@ export default function CreatePost() {
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Quick Share Section */}
+            {/* AddThis Share Section */}
             <div>
-              <h3 className="text-sm font-semibold mb-3">Share Directly</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-medium mb-2">Facebook</p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
-                        shareToSocialMedia(postUrl, 'facebook', shareImageData?.title || '', 'feed');
-                      }}
-                      className="flex-1"
-                    >
-                      <Facebook className="h-4 w-4 mr-1" />
-                      Feed
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
-                        shareToSocialMedia(postUrl, 'facebook', shareImageData?.title || '', 'story');
-                      }}
-                      className="flex-1"
-                    >
-                      Story
-                    </Button>
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-xs font-medium mb-2">Instagram</p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
-                        shareToSocialMedia(postUrl, 'instagram', shareImageData?.content || '', 'feed');
-                      }}
-                      className="flex-1"
-                    >
-                      <Instagram className="h-4 w-4 mr-1" />
-                      Post
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
-                        shareToSocialMedia(postUrl, 'instagram', shareImageData?.content || '', 'story');
-                      }}
-                      className="flex-1"
-                    >
-                      Story
-                    </Button>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
-                      shareToSocialMedia(postUrl, 'instagram', shareImageData?.content || '', 'reel');
-                    }}
-                    className="w-full mt-2"
-                  >
-                    Reel
-                  </Button>
-                </div>
+              <h3 className="text-sm font-semibold mb-3">Share Seamlessly</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Share directly to Stories, Reels, and Posts
+              </p>
+              
+              {/* AddThis Inline Share Buttons */}
+              <div 
+                className="addthis_inline_share_toolbox" 
+                data-url={createPostMutation.data?.id ? `${window.location.origin}/post/${createPostMutation.data.id}` : window.location.href}
+                data-title={shareImageData?.title || "Check out this truth"}
+                data-description={shareImageData?.content || ""}
+                data-media={shareImageData?.imageUrl || ""}
+              ></div>
+              
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground">
+                  ✨ <strong>Seamless sharing:</strong> Click any platform above to share directly to feeds, stories, or reels - no downloads needed!
+                </p>
               </div>
             </div>
 

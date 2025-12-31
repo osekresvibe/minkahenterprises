@@ -436,54 +436,28 @@ export default function MemberFeed() {
                 </CardContent>
               </Card>
 
-              {/* Share Options */}
+              {/* AddThis Seamless Share */}
               <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground mb-2">Facebook</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={() => handleShareToSocial("facebook", "feed")}
-                      className="flex items-center justify-center gap-2 text-xs"
-                      data-testid="button-share-facebook-feed"
-                    >
-                      <Facebook className="h-4 w-4" />
-                      Feed
-                    </Button>
-                    <Button
-                      onClick={() => handleShareToSocial("facebook", "story")}
-                      variant="outline"
-                      className="flex items-center justify-center gap-2 text-xs"
-                      data-testid="button-share-facebook-story"
-                    >
-                      <Facebook className="h-4 w-4" />
-                      Story
-                    </Button>
-                  </div>
+                <h3 className="text-sm font-semibold">Share to Social Media</h3>
+                <p className="text-xs text-muted-foreground">
+                  Share directly to Stories, Reels, and Posts seamlessly
+                </p>
+                
+                <div 
+                  className="addthis_inline_share_toolbox" 
+                  data-url={`${window.location.origin}/feed-post/${selectedPostForShare.id}`}
+                  data-title={selectedPostForShare.title || "Check this out"}
+                  data-description={selectedPostForShare.content || ""}
+                  data-media={selectedPostForShare.imageUrl || selectedPostForShare.videoUrl || ""}
+                ></div>
+                
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    ✨ Click any platform to share directly - works with Stories, Reels, and regular posts!
+                  </p>
                 </div>
 
-                <div>
-                  <p className="text-sm font-medium text-foreground mb-2">Instagram</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={() => handleShareToSocial("instagram", "feed")}
-                      className="flex items-center justify-center gap-2 text-xs"
-                      data-testid="button-share-instagram-feed"
-                    >
-                      <Instagram className="h-4 w-4" />
-                      Feed
-                    </Button>
-                    <Button
-                      onClick={() => handleShareToSocial("instagram", "story")}
-                      variant="outline"
-                      className="flex items-center justify-center gap-2 text-xs"
-                      data-testid="button-share-instagram-story"
-                    >
-                      <Instagram className="h-4 w-4" />
-                      Story
-                    </Button>
-                  </div>
                 </div>
-              </div>
 
               {/* Copy Link */}
               <div className="pt-4 border-t">
