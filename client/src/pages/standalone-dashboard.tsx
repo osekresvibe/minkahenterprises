@@ -189,9 +189,8 @@ export default function StandaloneDashboard() {
       try {
         const formData = new FormData();
         formData.append("file", selectedFile);
-        formData.append("category", "post");
 
-        const response = await fetch("/api/media/upload", {
+        const response = await fetch("/api/standalone/media/upload", {
           method: "POST",
           body: formData,
         });
@@ -201,7 +200,7 @@ export default function StandaloneDashboard() {
 
         if (selectedFile.type.startsWith("video/")) {
           videoUrl = mediaFile.fileUrl;
-        } else if (selectedFile.type.startsWith("image/")) { // Explicitly check for image
+        } else if (selectedFile.type.startsWith("image/")) {
           imageUrl = mediaFile.fileUrl;
         }
       } catch (error) {
@@ -221,9 +220,8 @@ export default function StandaloneDashboard() {
       try {
         const audioFormData = new FormData();
         audioFormData.append("file", new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' }));
-        audioFormData.append("category", "post");
 
-        const response = await fetch("/api/media/upload", {
+        const response = await fetch("/api/standalone/media/upload", {
           method: "POST",
           body: audioFormData,
         });

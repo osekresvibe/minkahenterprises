@@ -1257,13 +1257,14 @@ export function registerRoutes(app: Express) {
     try {
       const fileUrl = `/uploads/${req.file.filename}`;
       const isVideo = req.file.mimetype.startsWith('video/');
+      const isAudio = req.file.mimetype.startsWith('audio/');
 
       const mediaData = {
         fileName: req.file.originalname,
         fileUrl,
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
-        mediaType: (isVideo ? 'video' : 'image') as 'video' | 'image',
+        mediaType: (isVideo ? 'video' : isAudio ? 'image' : 'image') as 'video' | 'image',
         category: req.body.category || 'general',
         description: req.body.description,
         tags: req.body.tags,
@@ -1277,6 +1278,22 @@ export function registerRoutes(app: Express) {
       res.status(201).json(mediaFile);
     } catch (error) {
       res.status(400).json({ message: "Failed to save media file" });
+    }
+  });
+
+  // Standalone media upload - for users without church
+  app.post("/api/standalone/media/upload", isAuthenticated, getCurrentUser, upload.single('file'), async (req, res) => {
+    const user = res.locals.user as User;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    try {
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.status(201).json({ fileUrl, fileName: req.file.originalname, mimeType: req.file.mimetype });
+    } catch (error) {
+      res.status(400).json({ message: "Failed to upload file" });
     }
   });
 
