@@ -325,7 +325,7 @@ export default function MemberFeed() {
               <label className="text-sm font-medium text-foreground mb-2 block">Your Truth *</label>
               <Textarea
                 {...form.register("content", { required: "Please share your truth" })}
-                placeholder="Share your journey, experiences, testimony, or thoughts..."
+                placeholder="Share your truth..."
                 rows={6}
                 data-testid="input-post-content"
               />

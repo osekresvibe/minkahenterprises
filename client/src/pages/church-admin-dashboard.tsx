@@ -226,7 +226,7 @@ export default function ChurchAdminDashboard() {
                   id="post-content"
                   value={postContent}
                   onChange={(e) => setPostContent(e.target.value)}
-                  placeholder="Enter post content"
+                  placeholder="Share your truth..."
                   rows={4}
                 />
               </div>

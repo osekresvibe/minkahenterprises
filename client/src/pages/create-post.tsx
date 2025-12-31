@@ -307,7 +307,7 @@ export default function CreatePost() {
               <Textarea
                 id="content"
                 {...form.register("content", { required: true })}
-                placeholder="Share your journey, experiences, testimony, or thoughts..."
+                placeholder="Share your truth..."
                 rows={8}
                 data-testid="textarea-content"
               />

@@ -304,7 +304,7 @@ export default function SpeakYourTruth() {
                 <Textarea
                   id="content"
                   {...form.register("content", { required: true })}
-                  placeholder="Share your thoughts, experiences, or testimony..."
+                  placeholder="Share your truth..."
                   rows={6}
                 />
               </div>
