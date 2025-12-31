@@ -9,7 +9,7 @@ import {
   Users, Plus, Search, Home, Calendar, MessageSquare, 
   Settings, Bell, Heart, Share2, Bookmark, TrendingUp,
   Sparkles, Globe, ArrowRight, Image, Video, X, Upload,
-  Facebook, Twitter, Instagram, Link as LinkIcon, Copy
+  Facebook, Twitter, Instagram, Link as LinkIcon, Copy, Mic, Square
 } from "lucide-react";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
@@ -24,6 +24,7 @@ interface Post {
   content: string;
   imageUrl?: string;
   videoUrl?: string;
+  audioUrl?: string; // Added for audioUrl
   authorId: string;
   createdAt: string;
   author?: {
@@ -43,6 +44,10 @@ export default function StandaloneDashboard() {
   const [isUploading, setIsUploading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedPostForShare, setSelectedPostForShare] = useState<Post | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -52,18 +57,38 @@ export default function StandaloneDashboard() {
   });
 
   const createPostMutation = useMutation({
-    mutationFn: async (data: { title: string; content: string; imageUrl?: string; videoUrl?: string }) => {
-      return await apiRequest("POST", "/api/standalone-posts", data);
+    mutationFn: async () => {
+      const formData = new FormData();
+      formData.append("content", newPostContent);
+      if (newPostTitle) {
+        formData.append("title", newPostTitle);
+      }
+      if (selectedFile) {
+        formData.append("media", selectedFile);
+      }
+      if (audioBlob) {
+        const audioFile = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' });
+        formData.append("media", audioFile);
+      }
+
+      return apiRequest<Post>("/api/standalone-posts", {
+        method: "POST",
+        body: formData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/standalone-posts"] });
       setNewPostContent("");
       setNewPostTitle("");
       setSelectedFile(null);
-      setPreviewUrl(null);
+      setAudioBlob(null);
+      audioChunksRef.current = [];
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       toast({
-        title: "Posted!",
-        description: "Your post has been shared with the community.",
+        title: "Post created",
+        description: "Your post has been shared successfully",
       });
     },
     onError: () => {
@@ -103,11 +128,53 @@ export default function StandaloneDashboard() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleCreatePost = async () => {
-    if (!newPostContent.trim()) {
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
       toast({
-        title: "Content required",
-        description: "Please write something to share.",
+        title: "Microphone Access Denied",
+        description: "Please allow microphone access to record audio",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const clearAudio = () => {
+    setAudioBlob(null);
+    audioChunksRef.current = [];
+  };
+
+  const handleCreatePost = async () => {
+    if (!newPostContent.trim() && !audioBlob) { // Also check for audioBlob
+      toast({
+        title: "Content or audio required",
+        description: "Please write something or record audio to share.",
         variant: "destructive",
       });
       return;
@@ -115,6 +182,7 @@ export default function StandaloneDashboard() {
 
     let imageUrl: string | undefined;
     let videoUrl: string | undefined;
+    let audioUrl: string | undefined; // Added for audioUrl
 
     if (selectedFile) {
       setIsUploading(true);
@@ -133,7 +201,7 @@ export default function StandaloneDashboard() {
 
         if (selectedFile.type.startsWith("video/")) {
           videoUrl = mediaFile.fileUrl;
-        } else {
+        } else if (selectedFile.type.startsWith("image/")) { // Explicitly check for image
           imageUrl = mediaFile.fileUrl;
         }
       } catch (error) {
@@ -148,11 +216,40 @@ export default function StandaloneDashboard() {
       setIsUploading(false);
     }
 
+    if (audioBlob) {
+      setIsUploading(true);
+      try {
+        const audioFormData = new FormData();
+        audioFormData.append("file", new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' }));
+        audioFormData.append("category", "post");
+
+        const response = await fetch("/api/media/upload", {
+          method: "POST",
+          body: audioFormData,
+        });
+
+        if (!response.ok) throw new Error("Audio upload failed");
+        const mediaFile = await response.json();
+        audioUrl = mediaFile.fileUrl;
+      } catch (error) {
+        toast({
+          title: "Audio upload failed",
+          description: "Failed to upload audio. Please try again.",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
+
     createPostMutation.mutate({
       title: newPostTitle || "Untitled Post",
       content: newPostContent,
       imageUrl,
       videoUrl,
+      audioUrl // Include audioUrl here
     });
   };
 
@@ -359,6 +456,22 @@ export default function StandaloneDashboard() {
                       </div>
                     )}
 
+                    {audioBlob && (
+                      <div className="relative rounded-lg overflow-hidden border p-2">
+                        <p className="text-sm font-medium">Voice Recording</p>
+                        <audio src={URL.createObjectURL(audioBlob)} controls className="w-full" />
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="absolute top-2 right-2"
+                          onClick={clearAudio}
+                          data-testid="button-remove-audio"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-1">
                         <input
@@ -392,10 +505,21 @@ export default function StandaloneDashboard() {
                           <Video className="h-4 w-4" />
                           <span className="hidden sm:inline">Video</span>
                         </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={isRecording ? stopRecording : startRecording}
+                          className={`gap-2 ${isRecording ? 'text-red-500' : ''}`}
+                          data-testid="button-record-audio"
+                        >
+                          <Mic className="h-4 w-4" />
+                          <span className="hidden sm:inline">{isRecording ? "Stop Recording" : "Record Audio"}</span>
+                        </Button>
                       </div>
                       <Button 
                         onClick={handleCreatePost}
-                        disabled={!newPostContent.trim() || isUploading || createPostMutation.isPending}
+                        disabled={!newPostContent.trim() && !audioBlob || isUploading || createPostMutation.isPending}
                         data-testid="button-post"
                       >
                         {isUploading ? (
@@ -458,22 +582,27 @@ export default function StandaloneDashboard() {
                 ) : (
                   posts.map((post) => (
                     <Card key={post.id} className="hover-elevate" data-testid={`post-card-${post.id}`}>
-                      {(post.imageUrl || post.videoUrl) && (
-                        <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
+                      {(post.imageUrl || post.videoUrl || post.audioUrl) && ( // Include audioUrl check
+                        <div className="relative w-full overflow-hidden rounded-t-lg">
                           {post.videoUrl ? (
                             <video
                               src={post.videoUrl}
                               controls
-                              className="w-full h-full object-cover"
+                              className="w-full max-h-64 object-cover"
                               data-testid={`video-${post.id}`}
                             />
                           ) : post.imageUrl ? (
                             <img
                               src={post.imageUrl}
                               alt={post.title}
-                              className="w-full h-full object-cover"
+                              className="w-full max-h-64 object-cover"
                               data-testid={`image-${post.id}`}
                             />
+                          ) : post.audioUrl ? ( // Display audio player
+                            <div className="p-4 bg-muted flex items-center gap-3">
+                              <Mic className="h-6 w-6 text-primary" />
+                              <audio src={post.audioUrl} controls className="flex-1" data-testid={`audio-${post.id}`} />
+                            </div>
                           ) : null}
                         </div>
                       )}
@@ -664,6 +793,12 @@ export default function StandaloneDashboard() {
                       src={selectedPostForShare.videoUrl} 
                       className="w-full h-32 object-cover rounded mb-2" 
                     />
+                  )}
+                  {selectedPostForShare.audioUrl && ( // Display audio player for shared post
+                    <div className="p-2 bg-muted flex items-center gap-3 rounded">
+                      <Mic className="h-5 w-5 text-primary" />
+                      <audio src={selectedPostForShare.audioUrl} controls className="flex-1" />
+                    </div>
                   )}
                   <h4 className="font-semibold text-sm text-foreground">{selectedPostForShare.title}</h4>
                   <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{selectedPostForShare.content}</p>
