@@ -37,27 +37,50 @@ export default function CreatePost() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [lastUploadedImageUrl, setLastUploadedImageUrl] = useState<string | undefined>(undefined);
 
-  const shareToSocialMedia = (postUrl: string, platform: string, content: string) => {
+  const shareToSocialMedia = (postUrl: string, platform: string, content: string, shareType?: 'feed' | 'story' | 'reel') => {
     const text = encodeURIComponent(content);
     const url = encodeURIComponent(postUrl);
     
-    const shareUrls: Record<string, string> = {
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
-      twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
-      instagram: `https://www.instagram.com/`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
-      whatsapp: `https://wa.me/?text=${text}%20${url}`,
-    };
-
-    if (platform === 'instagram') {
+    if (platform === 'facebook') {
+      const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+      window.open(facebookUrl, '_blank', 'width=600,height=400');
+      
+      if (shareType === 'story') {
+        toast({
+          title: "Facebook Share",
+          description: "After sharing, you can also add this to your Facebook Story from your profile",
+        });
+      } else {
+        toast({
+          title: "Facebook Share",
+          description: "Post will be shared to your Facebook feed",
+        });
+      }
+    } else if (platform === 'instagram') {
       navigator.clipboard.writeText(postUrl);
-      toast({
-        title: "Link copied for Instagram!",
-        description: "Paste this link in your Instagram bio or story",
-      });
-      window.open(shareUrls[platform], '_blank');
-    } else if (shareUrls[platform]) {
-      window.open(shareUrls[platform], '_blank', 'width=600,height=400');
+      
+      if (shareType === 'story') {
+        toast({
+          title: "Link copied for Instagram Story!",
+          description: "Open Instagram app → Stories camera → Add link sticker → Paste",
+        });
+      } else if (shareType === 'reel') {
+        toast({
+          title: "Link copied for Instagram Reel!",
+          description: "Open Instagram app → Create Reel → Add description → Paste link",
+        });
+      } else {
+        toast({
+          title: "Link copied for Instagram!",
+          description: "Open Instagram app → Create post → Paste link in caption",
+        });
+      }
+      
+      window.open('https://www.instagram.com/', '_blank');
+    } else if (platform === 'twitter') {
+      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'width=600,height=400');
+    } else if (platform === 'linkedin') {
+      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'width=600,height=400');
     }
   };
 
@@ -194,16 +217,7 @@ export default function CreatePost() {
           <div className="flex gap-2">
             <Button size="sm" variant="default" onClick={() => handleGenerateAndOpenShareModal(title, content, lastUploadedImageUrl)}>
               <Share2 className="h-4 w-4 mr-1" />
-              Share as Image
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'facebook', title)}>
-              <Facebook className="h-4 w-4" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'twitter', title)}>
-              <Twitter className="h-4 w-4" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => shareToSocialMedia(postUrl, 'instagram', title)}>
-              <Instagram className="h-4 w-4" />
+              Share Options
             </Button>
           </div>
         ),
@@ -395,38 +409,135 @@ export default function CreatePost() {
         </CardContent>
       </Card>
 
-      {/* Share as Image Modal */}
+      {/* Share Options Modal */}
       <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Share as Image</DialogTitle>
+            <DialogTitle>Share Your Truth</DialogTitle>
             <DialogDescription>
-              Download your post as an image to share on social media
+              Choose how you'd like to share on social media
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {isGeneratingImage ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-              </div>
-            ) : shareImagePreview ? (
-              <div className="space-y-4">
-                <div className="border border-border rounded-lg overflow-hidden bg-muted">
-                  <img 
-                    src={shareImagePreview} 
-                    alt="Post preview"
-                    className="w-full h-auto"
-                  />
+          <div className="space-y-6">
+            {/* Quick Share Section */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Share Directly</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs font-medium mb-2">Facebook</p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
+                        shareToSocialMedia(postUrl, 'facebook', shareImageData?.title || '', 'feed');
+                      }}
+                      className="flex-1"
+                    >
+                      <Facebook className="h-4 w-4 mr-1" />
+                      Feed
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
+                        shareToSocialMedia(postUrl, 'facebook', shareImageData?.title || '', 'story');
+                      }}
+                      className="flex-1"
+                    >
+                      Story
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  This image is ready to download and share on your favorite social media platforms
-                </p>
+                
+                <div>
+                  <p className="text-xs font-medium mb-2">Instagram</p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
+                        shareToSocialMedia(postUrl, 'instagram', shareImageData?.content || '', 'feed');
+                      }}
+                      className="flex-1"
+                    >
+                      <Instagram className="h-4 w-4 mr-1" />
+                      Post
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
+                        shareToSocialMedia(postUrl, 'instagram', shareImageData?.content || '', 'story');
+                      }}
+                      className="flex-1"
+                    >
+                      Story
+                    </Button>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const postUrl = `${window.location.origin}/post/${createPostMutation.data?.id}`;
+                      shareToSocialMedia(postUrl, 'instagram', shareImageData?.content || '', 'reel');
+                    }}
+                    className="w-full mt-2"
+                  >
+                    Reel
+                  </Button>
+                </div>
               </div>
-            ) : null}
+            </div>
+
+            {/* Share as Image Section */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold mb-3">Share as Image</h3>
+              {isGeneratingImage ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : shareImagePreview ? (
+                <div className="space-y-4">
+                  <div className="border border-border rounded-lg overflow-hidden bg-muted">
+                    <img 
+                      src={shareImagePreview} 
+                      alt="Post preview"
+                      className="w-full h-auto"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Download or copy this image to share on Instagram Stories, Reels, or any platform
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopyImageToClipboard}
+                      className="flex-1"
+                      data-testid="button-copy-image"
+                    >
+                      Copy Image
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleDownloadImage}
+                      className="flex-1"
+                      data-testid="button-download-image"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
@@ -434,24 +545,6 @@ export default function CreatePost() {
               data-testid="button-close-share"
             >
               Close
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCopyImageToClipboard}
-              disabled={isGeneratingImage || !shareImagePreview}
-              data-testid="button-copy-image"
-            >
-              Copy to Clipboard
-            </Button>
-            <Button
-              type="button"
-              onClick={handleDownloadImage}
-              disabled={isGeneratingImage || !shareImagePreview}
-              data-testid="button-download-image"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download Image
             </Button>
           </DialogFooter>
         </DialogContent>
