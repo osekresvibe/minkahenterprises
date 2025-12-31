@@ -46,11 +46,12 @@ const upload = multer({
     const allowedMimes = [
       'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
       'video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm',
+      'audio/webm', 'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg',
     ];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only images and videos are allowed.'));
+      cb(new Error('Invalid file type. Only images, videos, and audio are allowed.'));
     }
   },
 });
