@@ -11,6 +11,11 @@ import fs from "fs/promises";
 import { db } from "./db";
 import { eq, and, asc, desc } from "drizzle-orm";
 import type { Church } from "@shared/schema";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2024-12-18.acacia",
+});
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -1544,6 +1549,167 @@ export function registerRoutes(app: Express) {
       });
     } catch (error) {
       res.status(400).json({ message: `Failed to share to ${platform}` });
+    }
+  });
+
+  // Stripe Payment Routes
+  
+  // Create payment intent for standalone posts or donations
+  app.post("/api/payments/create-intent", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    const { amount, currency = "usd", description } = req.body;
+
+    if (!amount || amount < 50) {
+      return res.status(400).json({ message: "Amount must be at least $0.50" });
+    }
+
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount), // Amount in cents
+        currency,
+        description: description || "MinkahEnterprises Payment",
+        metadata: {
+          userId: user.id,
+          userEmail: user.email || "",
+        },
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      });
+    } catch (error: any) {
+      console.error("Stripe payment intent error:", error);
+      res.status(500).json({ message: "Failed to create payment intent" });
+    }
+  });
+
+  // Create subscription for premium features
+  app.post("/api/payments/create-subscription", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    const { priceId, paymentMethodId } = req.body;
+
+    if (!priceId || !paymentMethodId) {
+      return res.status(400).json({ message: "Price ID and payment method are required" });
+    }
+
+    try {
+      // Create or get customer
+      let customerId = user.stripeCustomerId;
+      
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          name: `${user.firstName} ${user.lastName}`,
+          metadata: {
+            userId: user.id,
+          },
+        });
+        customerId = customer.id;
+        
+        // Update user with stripe customer ID (you'll need to add this field to schema)
+        // await storage.updateUser(user.id, { stripeCustomerId: customerId });
+      }
+
+      // Attach payment method to customer
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: customerId,
+      });
+
+      // Set as default payment method
+      await stripe.customers.update(customerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+
+      // Create subscription
+      const subscription = await stripe.subscriptions.create({
+        customer: customerId,
+        items: [{ price: priceId }],
+        expand: ['latest_invoice.payment_intent'],
+      });
+
+      res.json({
+        subscriptionId: subscription.id,
+        clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
+      });
+    } catch (error: any) {
+      console.error("Stripe subscription error:", error);
+      res.status(500).json({ message: "Failed to create subscription" });
+    }
+  });
+
+  // Webhook handler for Stripe events
+  app.post("/api/payments/webhook", async (req, res) => {
+    const sig = req.headers['stripe-signature'] as string;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      return res.status(400).json({ message: "Webhook secret not configured" });
+    }
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err: any) {
+      console.error("Webhook signature verification failed:", err.message);
+      return res.status(400).json({ message: `Webhook Error: ${err.message}` });
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log(`PaymentIntent ${paymentIntent.id} succeeded!`);
+        // Update database with successful payment
+        break;
+      
+      case 'payment_intent.payment_failed':
+        const failedPayment = event.data.object as Stripe.PaymentIntent;
+        console.log(`PaymentIntent ${failedPayment.id} failed.`);
+        break;
+      
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+        const subscription = event.data.object as Stripe.Subscription;
+        console.log(`Subscription ${subscription.id} ${event.type}`);
+        // Update user's subscription status
+        break;
+      
+      case 'customer.subscription.deleted':
+        const deletedSubscription = event.data.object as Stripe.Subscription;
+        console.log(`Subscription ${deletedSubscription.id} cancelled`);
+        // Handle subscription cancellation
+        break;
+
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({ received: true });
+  });
+
+  // Get customer portal session for managing subscriptions
+  app.post("/api/payments/create-portal-session", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    const { returnUrl } = req.body;
+
+    if (!user.stripeCustomerId) {
+      return res.status(400).json({ message: "No active subscription found" });
+    }
+
+    try {
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: returnUrl || `${req.protocol}://${req.get('host')}/profile`,
+      });
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Portal session error:", error);
+      res.status(500).json({ message: "Failed to create portal session" });
     }
   });
 

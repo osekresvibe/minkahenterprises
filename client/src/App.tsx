@@ -41,6 +41,7 @@ import UserProfile from "@/pages/user-profile";
 import SpeakYourTruth from "@/pages/speak-your-truth";
 import Channels from "@/pages/channels";
 import StandaloneDashboard from "@/pages/standalone-dashboard";
+import Subscription from "@/pages/subscription";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -226,6 +227,7 @@ function AppContent() {
         <Route path="/browse-organizations" component={BrowseOrganizations} />
         <Route path="/register-church" component={RegisterChurch} />
         <Route path="/profile" component={Profile} />
+        <Route path="/subscription" component={Subscription} />
         <Route path="/accept-invite/:token" component={AcceptInvite} />
         <Route component={NotFound} />
       </Switch>
