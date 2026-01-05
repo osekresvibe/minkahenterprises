@@ -996,9 +996,13 @@ export class DatabaseStorage implements IStorage {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
   }) {
-    // For now, store Stripe info in a simple way - can be extended later
-    console.log('Updating Stripe info for user:', userId, stripeInfo);
-    return;
+    await db.update(users)
+      .set({
+        stripeCustomerId: stripeInfo.stripeCustomerId,
+        stripeSubscriptionId: stripeInfo.stripeSubscriptionId,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
   }
 }
 

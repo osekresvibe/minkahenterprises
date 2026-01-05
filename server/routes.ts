@@ -11,12 +11,8 @@ import fs from "fs/promises";
 import { db } from "./db";
 import { eq, and, asc, desc } from "drizzle-orm";
 import type { Church } from "@shared/schema";
-import Stripe from "stripe";
-
-// Only initialize Stripe if API key is provided
-const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-10-29.clover" as any })
-  : null;
+import { stripeService } from "./stripeService";
+import { getStripePublishableKey } from "./stripeClient";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -1571,175 +1567,123 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  // Stripe Payment Routes
-  
-  // Create payment intent for standalone posts or donations
-  app.post("/api/payments/create-intent", isAuthenticated, getCurrentUser, async (req, res) => {
-    if (!stripe) {
-      return res.status(503).json({ message: "Payment processing is not configured" });
-    }
-    
-    const user = res.locals.user as User;
-    const { amount, currency = "usd", description } = req.body;
+  // Stripe Payment Routes (using stripe-replit-sync)
 
-    if (!amount || amount < 50) {
-      return res.status(400).json({ message: "Amount must be at least $0.50" });
-    }
-
+  // Get Stripe publishable key for frontend
+  app.get("/api/stripe/publishable-key", async (req, res) => {
     try {
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount), // Amount in cents
-        currency,
-        description: description || "MinkahEnterprises Payment",
-        metadata: {
-          userId: user.id,
-          userEmail: user.email || "",
-        },
-      });
-
-      res.json({
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-      });
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
     } catch (error: any) {
-      console.error("Stripe payment intent error:", error);
-      res.status(500).json({ message: "Failed to create payment intent" });
+      console.error("Error getting Stripe publishable key:", error);
+      res.status(500).json({ message: "Failed to get Stripe configuration" });
     }
   });
 
-  // Create subscription for premium features
-  app.post("/api/payments/create-subscription", isAuthenticated, getCurrentUser, async (req, res) => {
-    if (!stripe) {
-      return res.status(503).json({ message: "Payment processing is not configured" });
-    }
-    
-    const user = res.locals.user as User;
-    const { priceId, paymentMethodId } = req.body;
-
-    if (!priceId || !paymentMethodId) {
-      return res.status(400).json({ message: "Price ID and payment method are required" });
-    }
-
+  // List products from synced Stripe data
+  app.get("/api/stripe/products", async (req, res) => {
     try {
-      // Create or get customer
-      let customerId = (user as any).stripeCustomerId;
-      
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          name: `${user.firstName} ${user.lastName}`,
-          metadata: {
-            userId: user.id,
-          },
-        });
-        customerId = customer.id;
-        
-        // Update user with stripe customer ID (you'll need to add this field to schema)
-        // await storage.updateUser(user.id, { stripeCustomerId: customerId });
+      const products = await storage.listStripeProducts();
+      res.json({ data: products });
+    } catch (error: any) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // List products with prices (joined)
+  app.get("/api/stripe/products-with-prices", async (req, res) => {
+    try {
+      const rows = await storage.listStripeProductsWithPrices();
+
+      const productsMap = new Map();
+      for (const row of rows as any[]) {
+        if (!productsMap.has(row.product_id)) {
+          productsMap.set(row.product_id, {
+            id: row.product_id,
+            name: row.product_name,
+            description: row.product_description,
+            active: row.product_active,
+            metadata: row.product_metadata,
+            prices: []
+          });
+        }
+        if (row.price_id) {
+          productsMap.get(row.product_id).prices.push({
+            id: row.price_id,
+            unit_amount: row.unit_amount,
+            currency: row.currency,
+            recurring: row.recurring,
+            active: row.price_active,
+            metadata: row.price_metadata,
+          });
+        }
       }
 
-      // Attach payment method to customer
-      await stripe.paymentMethods.attach(paymentMethodId, {
-        customer: customerId,
-      });
-
-      // Set as default payment method
-      await stripe.customers.update(customerId, {
-        invoice_settings: {
-          default_payment_method: paymentMethodId,
-        },
-      });
-
-      // Create subscription
-      const subscription = await stripe.subscriptions.create({
-        customer: customerId,
-        items: [{ price: priceId }],
-        expand: ['latest_invoice.payment_intent'],
-      });
-
-      res.json({
-        subscriptionId: subscription.id,
-        clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
-      });
+      res.json({ data: Array.from(productsMap.values()) });
     } catch (error: any) {
-      console.error("Stripe subscription error:", error);
-      res.status(500).json({ message: "Failed to create subscription" });
+      console.error("Error fetching products with prices:", error);
+      res.status(500).json({ message: "Failed to fetch products" });
     }
   });
 
-  // Webhook handler for Stripe events
-  app.post("/api/payments/webhook", async (req, res) => {
-    if (!stripe) {
-      return res.status(503).json({ message: "Payment processing is not configured" });
+  // List prices
+  app.get("/api/stripe/prices", async (req, res) => {
+    try {
+      const prices = await storage.listStripePrices();
+      res.json({ data: prices });
+    } catch (error: any) {
+      console.error("Error fetching prices:", error);
+      res.status(500).json({ message: "Failed to fetch prices" });
     }
-    
-    const sig = req.headers['stripe-signature'] as string;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  });
 
-    if (!webhookSecret) {
-      return res.status(400).json({ message: "Webhook secret not configured" });
+  // Create checkout session
+  app.post("/api/stripe/checkout", isAuthenticated, getCurrentUser, async (req, res) => {
+    const user = res.locals.user as User;
+    const { priceId } = req.body;
+
+    if (!priceId) {
+      return res.status(400).json({ message: "Price ID is required" });
     }
-
-    let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-    } catch (err: any) {
-      console.error("Webhook signature verification failed:", err.message);
-      return res.status(400).json({ message: `Webhook Error: ${err.message}` });
+      let customerId = user.stripeCustomerId;
+      
+      if (!customerId) {
+        const customer = await stripeService.createCustomer(user.email || "", user.id);
+        customerId = customer.id;
+        await storage.updateUserStripeInfo(user.id, { stripeCustomerId: customerId });
+      }
+
+      const session = await stripeService.createCheckoutSession(
+        customerId,
+        priceId,
+        `${req.protocol}://${req.get('host')}/checkout/success`,
+        `${req.protocol}://${req.get('host')}/checkout/cancel`
+      );
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Checkout session error:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
     }
-
-    // Handle the event
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log(`PaymentIntent ${paymentIntent.id} succeeded!`);
-        // Update database with successful payment
-        break;
-      
-      case 'payment_intent.payment_failed':
-        const failedPayment = event.data.object as Stripe.PaymentIntent;
-        console.log(`PaymentIntent ${failedPayment.id} failed.`);
-        break;
-      
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log(`Subscription ${subscription.id} ${event.type}`);
-        // Update user's subscription status
-        break;
-      
-      case 'customer.subscription.deleted':
-        const deletedSubscription = event.data.object as Stripe.Subscription;
-        console.log(`Subscription ${deletedSubscription.id} cancelled`);
-        // Handle subscription cancellation
-        break;
-
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-    }
-
-    res.json({ received: true });
   });
 
-  // Get customer portal session for managing subscriptions
-  app.post("/api/payments/create-portal-session", isAuthenticated, getCurrentUser, async (req, res) => {
-    if (!stripe) {
-      return res.status(503).json({ message: "Payment processing is not configured" });
-    }
-    
+  // Create customer portal session
+  app.post("/api/stripe/portal", isAuthenticated, getCurrentUser, async (req, res) => {
     const user = res.locals.user as User;
     const { returnUrl } = req.body;
 
-    if (!(user as any).stripeCustomerId) {
+    if (!user.stripeCustomerId) {
       return res.status(400).json({ message: "No active subscription found" });
     }
 
     try {
-      const session = await stripe.billingPortal.sessions.create({
-        customer: (user as any).stripeCustomerId,
-        return_url: returnUrl || `${req.protocol}://${req.get('host')}/profile`,
-      });
+      const session = await stripeService.createCustomerPortalSession(
+        user.stripeCustomerId,
+        returnUrl || `${req.protocol}://${req.get('host')}/profile`
+      );
 
       res.json({ url: session.url });
     } catch (error: any) {
