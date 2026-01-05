@@ -126,6 +126,7 @@ function AppContent() {
           )}
         </Route>
         <Route path="/accept-invite/:token?" component={AcceptInvite} />
+        <Route path="/subscription" component={Subscription} />
         <Route component={NotFound} />
       </Switch>
     );
@@ -206,6 +207,7 @@ function AppContent() {
                 <Route path="/check-ins" component={CheckInPage} />
                 <Route path="/profile" component={Profile} />
                 <Route path="/settings" component={ChurchSettings} />
+                <Route path="/subscription" component={Subscription} />
                 <Route path="/accept-invite/:token" component={AcceptInvite} />
                 <Route path="/browse-organizations" component={BrowseOrganizations} />
                 <Route path="/register-church" component={RegisterChurch} />
@@ -250,6 +252,7 @@ function AppContent() {
       <Route path="/check-in" component={CheckInPage} />
       <Route path="/team-directory" component={TeamDirectory} />
       <Route path="/profile" component={Profile} />
+      <Route path="/subscription" component={Subscription} />
       <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route path="/speak-your-truth" component={SpeakYourTruth} />
       <Route component={NotFound} />
