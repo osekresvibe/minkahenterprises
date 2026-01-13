@@ -180,21 +180,41 @@ export class DatabaseStorage implements IStorage {
     lastName?: string;
     profileImageUrl?: string;
   }): Promise<User> {
-    // First, check if a user with this email already exists
-    const [existingUser] = await db
+    // First, check if a user with this ID already exists
+    const [existingUserById] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userData.id));
+
+    if (existingUserById) {
+      // Update existing user's profile info (keep same ID)
+      const [user] = await db
+        .update(users)
+        .set({
+          firstName: userData.firstName || existingUserById.firstName,
+          lastName: userData.lastName || existingUserById.lastName,
+          profileImageUrl: userData.profileImageUrl || existingUserById.profileImageUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userData.id))
+        .returning();
+      return user;
+    }
+
+    // Check if a user with this email already exists (different auth method)
+    const [existingUserByEmail] = await db
       .select()
       .from(users)
       .where(eq(users.email, userData.email));
 
-    if (existingUser) {
-      // Update existing user with new Firebase ID and other data
+    if (existingUserByEmail) {
+      // User exists with different ID - update profile but keep their original ID
       const [user] = await db
         .update(users)
         .set({
-          id: userData.id,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
+          firstName: userData.firstName || existingUserByEmail.firstName,
+          lastName: userData.lastName || existingUserByEmail.lastName,
+          profileImageUrl: userData.profileImageUrl || existingUserByEmail.profileImageUrl,
           updatedAt: new Date(),
         })
         .where(eq(users.email, userData.email))
@@ -212,16 +232,6 @@ export class DatabaseStorage implements IStorage {
         lastName: userData.lastName,
         profileImageUrl: userData.profileImageUrl,
         role: "member",
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
-          updatedAt: new Date(),
-        },
       })
       .returning();
 

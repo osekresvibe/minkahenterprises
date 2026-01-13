@@ -60,11 +60,11 @@ export async function setupAuth(app: Express) {
 
       firebaseApp = initializeApp({
         credential: cert(serviceAccountObj),
-        // Keep projectId from original setup as it's not in the edited snippet's initializeApp call
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+        // Use project_id from the service account JSON (available on server)
+        projectId: serviceAccountObj.project_id,
       });
 
-      console.log('Firebase Admin initialized successfully');
+      console.log('Firebase Admin initialized successfully with project:', serviceAccountObj.project_id);
     } catch (error) {
       console.error('Failed to initialize Firebase Admin:', error);
       throw error;
@@ -106,7 +106,8 @@ export async function setupAuth(app: Express) {
         profileImageUrl: picture || undefined,
       });
 
-      (req.session as any).userId = uid;
+      // Use the actual user ID from database (may differ from Firebase UID if user pre-existed)
+      (req.session as any).userId = user.id;
       (req.session as any).user = user;
 
       req.session.save((err) => {
