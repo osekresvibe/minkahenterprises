@@ -1,16 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Users, Calendar, MessageSquare, UserCheck, Heart } from "lucide-react";
+import { Users, Calendar, MessageSquare, UserCheck, Heart, Building2 } from "lucide-react";
 import { useLocation } from "wouter";
+import { QRCodeSVG } from "qrcode.react";
+import logoIcon from "@assets/WhatsApp_Image_2026-01-13_at_10.32.57_1768333779520.jpeg";
+import logoFull from "@assets/WhatsApp_Image_2026-01-13_at_10.57.36_1768333784140.jpeg";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
+  const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   const features = [
     {
       icon: Building2,
-      title: "Multi-Church Platform",
-      description: "Manage multiple church communities from one powerful SaaS solution",
+      title: "Multi-Organization Platform",
+      description: "Manage churches, nonprofits, clubs and communities from one powerful SaaS solution",
     },
     {
       icon: Users,
@@ -48,13 +52,15 @@ export default function Landing() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 sm:pt-24 sm:pb-20">
           <div className="text-center">
             <div className="flex justify-center mb-8">
-              <div className="h-20 w-20 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
-                <Building2 className="h-12 w-12 text-primary-foreground" />
-              </div>
+              <img 
+                src={logoFull} 
+                alt="Christian Hashtag" 
+                className="h-24 sm:h-32 w-auto"
+              />
             </div>
             
             <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6">
-              Connect Your Church
+              Connect Your
               <br />
               <span className="text-primary">Community Together</span>
             </h1>
@@ -98,10 +104,10 @@ export default function Landing() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
         <div className="text-center mb-12">
           <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-foreground mb-4">
-            Everything Your Church Needs
+            Everything Your Community Needs
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Powerful features designed specifically for church communities
+            Powerful features designed specifically for faith communities
           </p>
         </div>
 
@@ -124,6 +130,34 @@ export default function Landing() {
         </div>
       </div>
 
+      {/* QR Code Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-8 text-center">
+            <h3 className="font-serif text-xl font-semibold text-foreground mb-4">
+              Scan to Access
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              Scan this QR code to open Christian Hashtag on your mobile device
+            </p>
+            <div className="flex justify-center mb-4">
+              <div className="p-4 bg-white rounded-lg shadow-sm">
+                <QRCodeSVG 
+                  value={siteUrl || "https://christianhashtag.com"} 
+                  size={180}
+                  level="H"
+                  includeMargin={false}
+                  fgColor="#1e1b4b"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Perfect for sharing at events or in printed materials
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* CTA Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
         <Card className="bg-gradient-to-br from-primary to-primary/80 border-0">
@@ -132,8 +166,8 @@ export default function Landing() {
               Ready to Transform Your Community?
             </h2>
             <p className="text-lg text-primary-foreground/90 max-w-2xl mx-auto mb-8">
-              Join churches worldwide using our platform to build stronger,
-              more connected communities.
+              Join communities worldwide using our platform to build stronger,
+              more connected groups.
             </p>
             <Button
               size="lg"
@@ -152,14 +186,18 @@ export default function Landing() {
       <footer className="border-t border-border mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-3">
+              <img 
+                src={logoIcon} 
+                alt="Christian Hashtag" 
+                className="h-10 w-auto"
+              />
               <span className="font-serif font-semibold text-foreground">
-                MinkahEnterprises
+                Christian Hashtag
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2025 MinkahEnterprises. Building stronger communities.
+              © 2026 Christian Hashtag. Building stronger communities.
             </p>
           </div>
         </div>

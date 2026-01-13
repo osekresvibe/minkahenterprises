@@ -5,9 +5,13 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
+  signInWithPopup,
+  GoogleAuthProvider,
   type Auth,
   type User
 } from 'firebase/auth';
+
+const googleProvider = new GoogleAuthProvider();
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -93,6 +97,18 @@ export async function resetPassword(email: string): Promise<void> {
     await sendPasswordResetEmail(auth, email);
   } catch (error) {
     console.error('Error sending password reset email:', error);
+    throw error;
+  }
+}
+
+// Sign in with Google
+export async function signInWithGoogle(): Promise<User | null> {
+  try {
+    const auth = getFirebaseAuth();
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error) {
+    console.error('Error signing in with Google:', error);
     throw error;
   }
 }

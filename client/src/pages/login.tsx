@@ -3,14 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, AlertCircle, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { signInWithEmail, signUpWithEmail, resetPassword, initError } from "@/lib/firebase";
+import { AlertCircle, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
+import { signInWithEmail, signUpWithEmail, resetPassword, signInWithGoogle, initError } from "@/lib/firebase";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import logoIcon from "@assets/WhatsApp_Image_2026-01-13_at_10.32.57_1768333779520.jpeg";
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -161,17 +164,81 @@ export default function Login() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    if (initError) {
+      toast({
+        title: "Authentication unavailable",
+        description: "Please try again later or contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGoogleLoading(true);
+    try {
+      const user = await signInWithGoogle();
+      
+      if (user) {
+        const idToken = await user.getIdToken();
+        const response = await fetch("/api/auth/firebase", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${idToken}`,
+          },
+          credentials: "include",
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          if (userData && userData.role === "super_admin") {
+            window.location.href = "/admin";
+          } else {
+            window.location.href = "/";
+          }
+        } else {
+          toast({
+            title: "Login failed",
+            description: "Could not authenticate with the server",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Google auth error:", error);
+      let message = "Please try again";
+      
+      if (error?.code === "auth/popup-closed-by-user") {
+        message = "Sign-in popup was closed. Please try again.";
+      } else if (error?.code === "auth/popup-blocked") {
+        message = "Pop-up was blocked. Please allow pop-ups and try again.";
+      } else if (error?.message) {
+        message = error.message;
+      }
+      
+      toast({
+        title: "Google sign-in failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-accent/20 to-background flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
-              <Building2 className="h-10 w-10 text-primary-foreground" />
-            </div>
+            <img 
+              src={logoIcon} 
+              alt="Christian Hashtag" 
+              className="h-20 w-auto"
+            />
           </div>
           <h1 className="font-serif text-3xl font-bold text-foreground">
-            MinkahEnterprises
+            Christian Hashtag
           </h1>
           <p className="text-muted-foreground mt-2">
             Community Management Platform
@@ -337,13 +404,35 @@ export default function Login() {
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
                     <span className="bg-card px-2 text-muted-foreground">
-                      {isSignUp ? "Already have an account?" : "New here?"}
+                      or continue with
                     </span>
                   </div>
                 </div>
 
                 <Button
                   variant="outline"
+                  className="w-full"
+                  onClick={handleGoogleSignIn}
+                  disabled={isGoogleLoading || !!initError}
+                  data-testid="button-google-signin"
+                >
+                  <SiGoogle className="h-4 w-4 mr-2" />
+                  {isGoogleLoading ? "Signing in..." : "Continue with Google"}
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">
+                      {isSignUp ? "Already have an account?" : "New here?"}
+                    </span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
                   className="w-full"
                   onClick={() => {
                     setIsSignUp(!isSignUp);

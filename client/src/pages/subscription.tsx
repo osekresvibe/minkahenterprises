@@ -8,6 +8,7 @@ import { Check, Crown, Sparkles, ArrowLeft, Shield, Users, Calendar, MessageSqua
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import logoIcon from "@assets/WhatsApp_Image_2026-01-13_at_10.32.57_1768333779520.jpeg";
 
 interface StripePrice {
   id: string;
@@ -124,6 +125,11 @@ export default function Subscription() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
+          <img 
+            src={logoIcon} 
+            alt="Christian Hashtag" 
+            className="h-10 w-auto"
+          />
           <div>
             <h1 className="text-xl font-semibold">Subscription Plans</h1>
             <p className="text-sm text-muted-foreground">Choose the plan that's right for your organization</p>

@@ -26,14 +26,19 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import logoIcon from "@assets/WhatsApp_Image_2026-01-13_at_10.32.57_1768333779520.jpeg";
+import logoFull from "@assets/WhatsApp_Image_2026-01-13_at_10.57.36_1768333784140.jpeg";
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const isSuperAdmin = user?.role === "super_admin";
   const isChurchAdmin = user?.role === "church_admin";
@@ -103,14 +108,19 @@ export function AppSidebar() {
     <Sidebar data-testid="sidebar-main">
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-            <Building2 className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="font-serif font-semibold text-lg text-sidebar-foreground truncate">
-              {isSuperAdmin ? "MinkahEnterprises" : "Church Portal"}
-            </h2>
-          </div>
+          {isCollapsed ? (
+            <img 
+              src={logoIcon} 
+              alt="Christian Hashtag" 
+              className="h-10 w-10 object-contain"
+            />
+          ) : (
+            <img 
+              src={logoFull} 
+              alt="Christian Hashtag" 
+              className="h-10 w-auto object-contain"
+            />
+          )}
         </div>
       </SidebarHeader>
 
