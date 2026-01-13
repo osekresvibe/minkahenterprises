@@ -8,7 +8,7 @@ import logoFull from "@assets/WhatsApp_Image_2026-01-13_at_10.57.36_176833378414
 
 export default function Landing() {
   const [, setLocation] = useLocation();
-  const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const siteUrl = "https://christianhashtag.com";
 
   const features = [
     {
