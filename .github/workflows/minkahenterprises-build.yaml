@@ -44,7 +44,7 @@ jobs:
           SITE_URL: ${{ inputs.site-url }}
           VITE_FIREBASE_API_KEY: AIzaSyBQKQIDPiy4tV7PzwRLS85DCRG35iOpb2k
         run: |
-          npm ci
+          npm ci --include=dev
           npm run build
 
 # Please do not touch the following action
