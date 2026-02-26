@@ -1,0 +1,61 @@
+# To better understand this file read this:
+# https://docs.ionos.space/docs/github-actions-customization/
+
+name: "Deploy Now: Execute Build"
+
+on:
+  workflow_call:
+    inputs:
+      site-url:
+        required: true
+        type: string
+      branch-id:
+        required: true
+        type: string
+
+env:
+  DEPLOYMENT_FOLDER: dist
+
+jobs:
+# Please do not rename this job
+  build-project:
+    name: build minkahenterprises
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: v22.x
+
+      - name: Build Node assets
+        env:
+          CI: true
+          DATABASE_URL: postgresql://neondb_owner:npg_yfsXY3JU1AQj@ep-bold-cake-ahc3ia3q.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require
+          FIREBASE_CLIENT_EMAIL: firebase-adminsdk-fbsvc@minkah-enterprises-e51f3.iam.gserviceaccount.com
+          FIREBASE_PRIVATE_KEY: \nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDKtTZ3B1O+8Da3\nc6t6/v6Pq8B20An69xvCbcm2uxorNRKsixArSYSpHNWoLKS1g8SrWRSkeenmBjJ/\ncoabYBPHx4HyvFX+3nZm6HprQ9QynYa2+X/ozzGekAGJG2I6nUesM2TnAWQF9tkf\nHBus8ChVvbaGqYY2RbrR8n+V2QhL1gRNYMvyj+rUvUrsauxJiKJmDK0nzUB0xN40\na9INYBvscTtmzjWJaSGZGvR2c7ClrUmXCEx17HeY906uqec57Z27AcA7IxXvaFqW\ne/9gcxMroVjII5mCUtCHEn83fDbIOE6eq7Fev4MJwbt2Es3x/GO/R0ldrstW2jTr\nUtW6BiA/AgMBAAECggEACQvXJK7VaoximS4PlzfEyxJFFdoXQ3ypGKZca/25ChSz\nwuuagC3R6S0J3Jf6xuHczr88P/zXSIueJTGRninUxJkmcBRa0skIcqx33+jRLohq\nmdNF2saIWdqRCaTBtPq45YFHNo5l8YEV08ul8TP9abaY3d+4HI59Tph/tTxskjDd\nE4jG1qDnr4nfAO2GXneEZe1o9jEEOxgINkpRwPm9sNgPja7g7cM+xgH9YoWC96/M\nh91qzaWtPFgEkIA5NAru99KUohdXTVI5xD80fA1Hf6V0cy0BbL6JyF9orec4X+Jp\n5v0W9U5a9jtvVZXmOq7/nE973o2w7RtO1zTYJI/cuQKBgQD6EENo8wQLZFXTk4+V\nLnI2tYmfJ7nlZTnAV04hEAnirnGuhvlgLB2+WG/Jz1Tse6XJqZZVz7aZMwBdpP4g\n+QgBrODPN/KouXX54yMx8wHmz8xtjJ9/lxF0nEBMd+ybw0oQ0SelUMKlpWmccthS\nU64hscgEPshzwWlYeO9zGRJ5BwKBgQDPhSZmGWeZKZyru1R+h2fiOp8S6toAWxA6\nNbA7TLFRVacrO6upD+IxfUKHh9FkF7yQpB1MPidqygwVSHy70axyaFVe6Q8XjbjX\n9lB+/Pe4r15HT97dltJTRjMr9PU/OHwVHWqhFUJiOaYESPvWaxX0nsnELm0XSpyW\nOPKckmRpCQKBgApVKbPodr5RwwofCsvLQ4TnM2yUI6ZK7Hv6H4xWMVJgiun/Qcar\ni/8VgGkCXCv5X/xZOZEKKC1kYht8edO69o27Kv7k/O3j2/AbZpTlyapT48qTCPQo\ntdvvqOh//BLjmufe/JhkIebeUuLYDAA63PMfeXhTb8z4rPWu6ZYD7zN5AoGAIgrm\nvLMIMrEH2Yg2mTcfTJZvSAwszQgjRllOWrv/Dqetb8MvKuHHKnUw98jJCdF3BodV\now9DKhqRFuC4TZtc3bvN3W8AIc4G966Zj+txu+NQ5QPuPI2kXTLT7C8YGFHs0Q3t\nUxWIuVJZsLREU+1nQaTW1o8DKGH+BAq9if/d5vkCgYEAztPpvoSb0fE5Y3p21Med\n2I4ftmeSiF8RjfzB/B4AJz6s9SYUQphHEDADZFXqUl/O8SoXZ3rp+Ykhdvt07IUM\nA5yZT/nQKbSVQgXCiiDSny9l1ANW+eXu1EA5nd0q+nEcqEPykSKNpU8ZdurqqfB5\nX8PGwGPgVZUvhrPx0LZHvyQ=\n-----END PRIVATE KEY-----\n
+          FIREBASE_PROJECT_ID: minkah-enterprises-e51f3
+          NODE_ENV: production
+          SESSION_SECRET: El4fAxL3ja/kQZCnr6C46miKOlHAN4tbvm5iWACiNa6j9Y1H6bWaWJy+ReoDIh3Wc87Ve4cE3W/XwTe5QvdoeQ==
+          SITE_URL: ${{ inputs.site-url }}
+          VITE_FIREBASE_API_KEY: AIzaSyBQKQIDPiy4tV7PzwRLS85DCRG35iOpb2k
+        run: |
+          npm ci
+          npm run build
+
+# Please do not touch the following action
+      - name: Store deployment content
+        uses: ionos-deploy-now/artifact-action@v1
+        with:
+          api-key: ${{ secrets.IONOS_API_KEY }}
+          service-host: api-us.ionos.space
+          project-id: 286d2f57-1a02-4856-a61f-17ce60f56984
+          branch-id: ${{ inputs.branch-id }}
+          version: ${{ github.sha }}
+          folder: ${{ env.DEPLOYMENT_FOLDER }}
+          config-file: .deploy-now/minkahenterprises/config.yaml
+          action: upload
