@@ -53,7 +53,8 @@ async function initStripe() {
   }
 }
 
-await initStripe();
+app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
+initStripe().catch((err) => console.error('Stripe init error:', err));
 
 app.post(
   '/api/stripe/webhook',
